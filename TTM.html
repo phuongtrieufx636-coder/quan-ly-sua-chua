@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GPT Trading — TTM Mobile | Bảng giá & Thanh toán</title>
+  <meta name="description" content="GPT Trading by TTM Mobile — bảng giá, ưu đãi và hướng dẫn thanh toán. Liên hệ hotline 0856.676.299." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0a0f1d; --bg2:#0e1630; --card:#0f1b33; --line:#1e335f; --text:#eaf0ff; --muted:#9ab0d6;
+      --acc:#7c5cff; --acc2:#45f0b6; --ring: rgba(124,92,255,.28);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,var(--bg),var(--bg2) 60%,var(--bg));color:var(--text)}
+    a{color:inherit}
+    .wrap{max-width:1120px;margin:auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0 18px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:radial-gradient(80% 80% at 30% 25%, #9b8cff 0%, #7c5cff 45%, #2a1f6a 100%);box-shadow:0 10px 30px rgba(124,92,255,.35) inset, 0 0 0 1px #2b2366}
+    .brand h1{margin:0;font-size:18px;letter-spacing:.2px;line-height:1.1}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:#0c1430;color:var(--text);text-decoration:none;font-weight:600}
+    .btn:hover{box-shadow:0 0 0 3px var(--ring) inset}
+    .btn.acc{background:linear-gradient(135deg,#1a2458,#272d78);border-color:#32429a}
+
+    .hero{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));border:1px solid var(--line);border-radius:14px;padding:18px}
+    h2{margin:0 0 10px;font-size:24px}
+    p{color:var(--muted);line-height:1.65}
+    .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+    .kpi .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .kpi .n{font-size:20px;font-weight:800}
+
+    .section{margin-top:18px}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;position:relative}
+    .badge{position:absolute;top:12px;right:-34px;rotate:-12deg;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#082330;font-weight:800;padding:6px 44px;border-radius:999px}
+    .price{font-size:28px;font-weight:800}
+    .feat{display:flex;gap:8px;align-items:flex-start;color:var(--muted)}
+    .feat:before{content:"✓";color:var(--acc2);margin-top:2px}
+    .cta{margin-top:auto;display:flex;gap:10px;flex-wrap:wrap}
+    .cta .btn{flex:1;justify-content:center}
+
+    .toggle{display:flex;align-items:center;gap:8px;margin-top:8px}
+    .switch{position:relative;width:56px;height:30px;border-radius:999px;background:#223663;cursor:pointer;border:1px solid var(--line)}
+    .knob{position:absolute;top:3px;left:3px;width:24px;height:24px;background:white;border-radius:50%;transition:.25s}
+    .switch.active .knob{left:29px}
+
+    .grid2{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .col-6{grid-column:span 6}
+    .col-12{grid-column:span 12}
+
+    .pay{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+    .pay .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+    .qr{width:100%;border-radius:12px;border:1px dashed #345;background:rgba(255,255,255,.02);aspect-ratio:1/1;display:grid;place-items:center;color:#6fa7ff}
+
+    .bankline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .chip{padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#0c1430;color:var(--muted);font-weight:600}
+
+    footer{padding:28px 0 12px;color:#8aa0c6;font-size:13px}
+
+    @media (max-width:860px){.hero{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3l2.7 5.5L21 9l-4.5 4.2L17 19l-5-2.8L7 19l.5-5.8L3 9l6.3-.5L12 3Z" stroke="#d7d2ff" stroke-width="1.2"/></svg>
+        </div>
+        <h1>GPT Trading — TTM Mobile</h1>
+      </div>
+      <div class="actions">
+        <a class="btn acc" href="#price">Bảng giá</a>
+        <a class="btn" href="#pay">Thanh toán</a>
+        <a class="btn" href="tel:0856676299">Hotline: 0856.676.299</a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="panel">
+        <h2>Trợ lý giao dịch AI cho nhà đầu tư Việt</h2>
+        <p><strong>GPT Trading</strong> là bộ trợ lý đọc tín hiệu & quản trị rủi ro tự động, tối ưu cho MT5. Hỗ trợ cài đặt từ xa, cập nhật thường xuyên, bảo hành 1:1.</p>
+        <div class="kpi">
+          <div class="box"><div class="n">+50</div><div class="t">tính năng quản trị rủi ro</div></div>
+          <div class="box"><div class="n">24/7</div><div class="t">hỗ trợ kỹ thuật</div></div>
+          <div class="box"><div class="n">USDT/VND</div><div class="t">linh hoạt thanh toán</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Liên hệ nhanh</h2>
+        <p>Gọi trực tiếp hoặc nhấn để sao chép thông tin thanh toán.</p>
+        <div class="bankline" style="margin-top:8px">
+          <span class="chip">MB Bank</span>
+          <span class="chip">Chủ TK: <strong>Nguyen Phuong Trieu</strong></span>
+        </div>
+        <div class="bankline mono" style="margin-top:8px">
+          <span>Số TK:</span>
+          <button id="copyAcc" class="btn" title="Sao chép" style="padding:6px 10px">2226868686886</button>
+        </div>
+        <div class="bankline" style="margin-top:8px">
+          <a class="btn acc" href="#pay">Thanh toán ngay</a>
+          <a class="btn" href="tel:0856676299">Gọi: 0856.676.299</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="price" class="section panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <h2 style="margin:0">Bảng giá GPT Trading</h2>
+        <div class="toggle"><span class="muted">Đơn vị tiền tệ</span><button id="toggleCurr" class="switch" aria-label="Chuyển USDT/VND"><span class="knob"></span></button><span id="currLabel">USDT — giá ưu đãi</span></div>
+      </div>
+      <p class="muted" style="margin:6px 0 12px">Ưu đãi: nâng cấp gói trong tháng đầu hoàn 50%; thanh toán 6 tháng hoàn 30%.</p>
+      <div id="plans" class="cards"></div>
+    </section>
+
+    <section class="section panel">
+      <h2>Tính năng nổi bật</h2>
+      <div class="grid2">
+        <div class="col-6">
+          <ul>
+            <li>Quản trị rủi ro theo % balance & USD</li>
+            <li>ATR/MA/RSI filters, trend lock & hedge recovery</li>
+            <li>Virtual TP, Smart Trim, Cycle mode</li>
+          </ul>
+        </div>
+        <div class="col-6">
+          <ul>
+            <li>UI bảng điều khiển trong MT5</li>
+            <li>Hỗ trợ cài đặt qua UltraView</li>
+            <li>License theo ID tài khoản</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="pay" class="section panel">
+      <h2>Thanh toán</h2>
+      <p>Ghi nội dung chuyển khoản: <code class="mono">Tên gói + SĐT</code> (ví dụ: <code class="mono">Max + 0856676299</code>). Sau khi chuyển khoản, liên hệ hotline để kích hoạt nhanh.</p>
+      <div class="pay">
+        <div class="box">
+          <h3>VietQR / Banking (khuyến nghị)</h3>
+          <div class="qr">Thay ảnh <strong>vietqr.png</strong> vào đây</div>
+          <p class="mono" style="margin:10px 0 0">MB Bank · Nguyen Phuong Trieu<br/>STK: <strong>2226868686886</strong></p>
+        </div>
+        <div class="box">
+          <h3>USDT (tuỳ chọn)</h3>
+          <div class="qr">Thay ảnh <strong>usdt-qr.png</strong> / điền ví USDT</div>
+          <p class="muted">Nếu chưa có ví, vui lòng liên hệ hotline để được hướng dẫn.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      © 2025 GPT Trading — TTM Mobile. Sản phẩm hỗ trợ ra quyết định — không phải lời khuyên đầu tư. Giao dịch có rủi ro.
+    </footer>
+  </div>
+
+  <script>
+    // ====== Cấu hình gói & giá USDT ======
+    const usd2vnd = 25000; // chỉnh theo tỷ giá thực tế
+    const plans = [
+      {name:'GPT Trading Lite',  price:29,  tag:'Khởi điểm'},
+      {name:'GPT Trading Core',  price:79,  tag:'Phổ biến'},
+      {name:'GPT Trading Max',   price:149, tag:'Tối ưu'},
+      {name:'GPT Trading Pro+',  price:299, tag:'Chuyên sâu'}
+    ];
+
+    const plansWrap = document.getElementById('plans');
+    let useVND = false;
+
+    function formatPrice(usdt){
+      if(!useVND) return `<span class="price">${usdt} <small class="muted">USDT</small></span>`;
+      const vnd = Math.round(usdt * usd2vnd).toLocaleString('vi-VN');
+      return `<span class="price">${vnd} <small class="muted">VND</small></span>`;
+    }
+
+    function renderCards(){
+      plansWrap.innerHTML = plans.map((p,i)=>`
+        <div class="card">
+          ${p.tag && i===1 ? `<div class=\"badge\">Phổ biến</div>`:``}
+          <h3 style="margin:0">${p.name}</h3>
+          ${formatPrice(p.price)}
+          <div class="feat">Trợ lý AI tối ưu cho MT5</div>
+          <div class="feat">Cập nhật định kỳ, hỗ trợ 24/7</div>
+          <div class="feat">Hướng dẫn cài đặt từ xa</div>
+          <div class="cta">
+            <a class="btn" href="#pay">Thanh toán</a>
+            <a class="btn acc" href="tel:0856676299">Gọi hotline</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    renderCards();
+
+    // ====== Toggle USDT / VND ======
+    const toggle = document.getElementById('toggleCurr');
+    const label  = document.getElementById('currLabel');
+    toggle.addEventListener('click', ()=>{
+      useVND = !useVND;
+      toggle.classList.toggle('active', useVND);
+      label.textContent = useVND ? 'VND — quy đổi từ USDT' : 'USDT — giá ưu đãi';
+      renderCards();
+    });
+
+    // ====== Copy số tài khoản ======
+    document.getElementById('copyAcc').addEventListener('click',()=>{
+      navigator.clipboard.writeText('2226868686886');
+      const btn = document.getElementById('copyAcc');
+      const old = btn.textContent; btn.textContent='Đã sao chép';
+      setTimeout(()=>btn.textContent=old,1200);
+    });
+  </script>
+</body>
+</html>
