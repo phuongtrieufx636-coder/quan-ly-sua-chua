@@ -1,0 +1,952 @@
+
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TTM Mobile — Quản lý sửa chữa (v7)</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#fff; --text:#111827; --muted:#6b7280;
+      --primary:#2563eb; --success:#16a34a; --warn:#b45309; --danger:#dc2626;
+      --border:#e5e7eb; --soft:#f1f5f9; --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      line-height:1.4;
+    }
+    .container{max-width:1200px;margin:24px auto;padding:0 16px}
+    header.card{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    h1{font-size:22px;margin:0}
+    h2{margin:0;font-size:20px}
+    h3{margin:12px 0 8px;font-size:16px}
+    .badge{
+      background:var(--soft);
+      border:1px solid var(--border);
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:600;
+      color:#0f172a;
+      font-size:14px;
+    }
+    .badge.sm{font-size:12px;padding:4px 8px}
+    .row{
+      display:grid;
+      grid-template-columns:repeat(12,1fr);
+      gap:12px;
+    }
+    .col-3{grid-column:span 3}
+    .col-4{grid-column:span 4}
+    .col-6{grid-column:span 6}
+    .col-12{grid-column:span 12}
+    @media (max-width:900px){
+      .row{grid-template-columns:repeat(6,1fr)}
+      .col-3,.col-4,.col-6,.col-12{grid-column:span 6}
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:0 6px 18px rgba(0,0,0,.04);
+      margin-bottom:16px;
+    }
+    label{display:block;font-weight:600;margin:8px 0 6px}
+    input,select,textarea{
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:10px;
+      background:#fff;
+      outline:none;
+      font-size:15px;
+    }
+    input:focus,select:focus,textarea:focus{
+      border-color:var(--primary);
+      box-shadow:0 0 0 3px rgba(37,99,235,.12)
+    }
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      background:var(--primary);
+      color:#fff;
+      border:none;
+      border-radius:10px;
+      padding:10px 14px;
+      font-weight:700;
+      cursor:pointer;
+      font-size:15px;
+    }
+    .btn.gray{background:#475569}
+    .btn.success{background:var(--success)}
+    .btn.danger{background:var(--danger)}
+    .btn.warn{background:#f59e0b;color:#111}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{
+      background:var(--soft);
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      font-weight:700;
+      font-size:14px;
+      white-space:nowrap;
+    }
+    .pill b{font-variant-numeric:tabular-nums}
+    .tabbar{
+      display:flex;
+      gap:8px;
+      margin:12px 0;
+      flex-wrap:wrap;
+    }
+    .tab{
+      padding:10px 14px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:var(--card);
+      cursor:pointer;
+      font-weight:700;
+      font-size:15px;
+      flex:1 1 auto;
+      text-align:center;
+    }
+    @media (min-width:768px){
+      .tab{flex:0 0 auto}
+    }
+    .tab.active{
+      background:var(--primary);
+      color:#fff;
+      border-color:var(--primary)
+    }
+    /* TABLE WRAPPER FOR HORIZONTAL SCROLL */
+    .table-wrapper{
+      width:100%;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+    }
+    table{
+      min-width:700px;
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      font-size:14px;
+    }
+    thead th{
+      position:sticky;
+      top:0;
+      background:#f8fafc;
+      border-bottom:1px solid var(--border);
+      z-index:1;
+      text-align:left;
+      padding:10px;
+      white-space:nowrap;
+    }
+    th,td{
+      padding:10px;
+      border-bottom:1px solid var(--border);
+      text-align:left;
+      vertical-align:top;
+    }
+    tbody tr:nth-child(even){background:#fafafa}
+    td.right, th.right{text-align:right}
+    .status-delivered{color:var(--success);font-weight:700}
+    .status-pending{color:var(--warn);font-weight:700}
+    .actions .btn{
+      padding:6px 10px;
+      font-size:13px;
+      white-space:nowrap;
+    }
+    .hint{color:var(--muted);font-size:13px}
+    .section-title{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .searchbox{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .searchbox input{max-width:240px}
+    footer{
+      color:var(--muted);
+      text-align:center;
+      margin:18px 0 30px;
+      font-size:13px;
+    }
+    /* Modal */
+    .modal-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.5);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:50;
+    }
+    .modal{
+      background:#fff;
+      border-radius:var(--radius);
+      max-width:520px;
+      width:100%;
+      border:1px solid var(--border);
+      box-shadow:0 10px 30px rgba(0,0,0,.2);
+      font-size:15px;
+    }
+    .modal header{
+      padding:14px 16px;
+      border-bottom:1px solid var(--border);
+      font-weight:800;
+      font-size:16px;
+    }
+    .modal .body{padding:14px 16px}
+    .modal .footer{
+      padding:14px 16px;
+      border-top:1px solid var(--border);
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="card">
+      <div style="min-width:200px;flex:1">
+        <h1>TTM Mobile — Quản lý sửa chữa <small class="hint">(v7)</small></h1>
+        <div class="hint">
+          Khách sỉ: nhận chi tiết, popup giao hàng/thu tiền (tiền mặt / NH / công nợ), theo dõi công nợ & thu nợ từng phần.
+        </div>
+      </div>
+      <div class="toolbar">
+        <span class="pill"><b id="deviceBadge">Thiết bị: ...</b></span>
+        <span class="pill">Vốn hôm nay: <b id="todayCost">0</b> đ</span>
+        <span class="pill">Lợi nhuận hôm nay: <b id="todayProfit">0</b> đ</span>
+        <button class="btn warn" onclick="exportAllCSV()">Xuất CSV ALL</button>
+      </div>
+    </header>
+
+    <nav class="tabbar card">
+      <button class="tab active" data-tab="retailTab">Sửa lẻ (Retail)</button>
+      <button class="tab" data-tab="whTab">Khách sỉ (Wholesale)</button>
+      <button class="tab" data-tab="reportTab">Báo cáo</button>
+    </nav>
+
+    <!-- RETAIL -->
+    <section id="retailTab" class="tabpanel">
+      <div class="card">
+        <div class="section-title">
+          <h2>Thêm phiếu sửa (Retail)</h2>
+          <div class="toolbar">
+            <button class="btn" onclick="exportCSV('retail')">Xuất CSV Retail</button>
+            <button class="btn gray" onclick="clearAll('retail')">Xóa tất cả Retail</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-4"><label>IMEI / Serial</label><input id="r_imei" placeholder="VD: 354859..." /></div>
+          <div class="col-4"><label>Tên máy</label><input id="r_model" placeholder="VD: iPhone 12 Pro Max" /></div>
+          <div class="col-4"><label>Tên khách</label><input id="r_customer" placeholder="Tên khách hàng" /></div>
+          <div class="col-4"><label>Số ĐT</label><input id="r_phone" placeholder="0912xxxxxx" /></div>
+          <div class="col-4"><label>Mật khẩu máy (nếu có)</label><input id="r_pass" placeholder="Mật khẩu (nếu có)" /></div>
+          <div class="col-4"><label>Giá vốn (VNĐ)</label><input id="r_cost" type="number" min="0" value="0" /></div>
+          <div class="col-4"><label>Giá bán (VNĐ)</label><input id="r_price" type="number" min="0" value="0" /></div>
+          <div class="col-4"><label>Ghi chú</label><input id="r_note" placeholder="Ví dụ: Thay pin, kính..." /></div>
+          <div class="col-4"><label>Người nhận (thợ)</label><input id="r_staff" placeholder="Người nhận sửa" /></div>
+        </div>
+        <div style="margin-top:10px" class="toolbar">
+          <button class="btn success" onclick="addRetail()">Thêm phiếu</button>
+          <button class="btn gray" onclick="clearRetailForm()">Xóa form</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <div style="min-width:200px">
+            <h2>Danh sách phiếu sửa (Retail)</h2>
+            <div class="hint">Bấm “Đã giao” để chốt và xem lợi nhuận của phiếu.</div>
+          </div>
+          <div class="searchbox">
+            <input id="searchRetail" placeholder="Tìm IMEI/khách/model..." oninput="filterTable('retail')" />
+            <span class="pill">Tổng: <b id="retailCount">0</b></span>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table id="retailTable">
+            <thead>
+              <tr>
+                <th>#</th><th>IMEI</th><th>Khách</th><th>Model</th>
+                <th class="right">Vốn</th><th class="right">Bán</th><th class="right">Lãi</th>
+                <th>Ghi chú</th><th>Người nhận</th><th>TT</th><th>Hành động</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHOLESALE -->
+    <section id="whTab" class="tabpanel" hidden>
+      <div class="card">
+        <div class="section-title">
+          <h2>Nhận đơn Khách sỉ (Wholesale)</h2>
+          <div class="toolbar">
+            <button class="btn" onclick="exportCSV('wholesale')">Xuất CSV Wholesale</button>
+            <button class="btn gray" onclick="clearAll('wholesale')">Xóa tất cả Wholesale</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-4"><label>Tên cửa hàng</label><input id="w_shop" placeholder="VD: Cửa hàng ABC" /></div>
+          <div class="col-4"><label>Máy gì</label><input id="w_device" placeholder="VD: iPhone 12 Pro Max" /></div>
+          <div class="col-4"><label>IMEI / Serial</label><input id="w_imei" placeholder="354859..." /></div>
+
+          <div class="col-4"><label>Giá nhận sửa (VNĐ)</label><input id="w_price" type="number" min="0" value="0" /></div>
+          <div class="col-4"><label>Vốn (VNĐ)</label><input id="w_cost" type="number" min="0" value="0" /></div>
+          <div class="col-4"><label>Tình trạng</label>
+            <select id="w_status">
+              <option value="Đang nhận">Đang nhận</option>
+              <option value="Đang sửa">Đang sửa</option>
+              <option value="Chờ linh kiện">Chờ linh kiện</option>
+              <option value="Hoàn tất">Hoàn tất</option>
+            </select>
+          </div>
+
+          <div class="col-12"><label>Ghi chú thêm</label><input id="w_note" placeholder="Nội dung, lỗi, linh kiện,..." /></div>
+        </div>
+
+        <div class="toolbar" style="margin-top:10px">
+          <button class="btn success" onclick="addWholesale()">Tạo đơn</button>
+          <button class="btn gray" onclick="clearWholesaleForm()">Xóa form</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <div style="min-width:200px">
+            <h2>Danh sách Khách sỉ</h2>
+            <div class="hint">Bấm “Giao hàng/Thu tiền” để chọn phương thức: tiền mặt, ngân hàng, công nợ. Có thể thu nợ từng phần.</div>
+          </div>
+          <div class="searchbox">
+            <input id="searchWh" placeholder="Tìm cửa hàng/máy/IMEI..." oninput="filterTable('wh')" />
+            <span class="pill">Tổng: <b id="whCount">0</b></span>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table id="whTable">
+            <thead>
+              <tr>
+                <th>#</th><th>Cửa hàng</th><th>Máy / IMEI</th><th>Tình trạng</th>
+                <th class="right">Vốn</th><th class="right">Giá nhận</th><th class="right">Lãi</th>
+                <th class="right">Đã TT</th><th class="right">Còn nợ</th>
+                <th>TT</th><th>Hành động</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <h2>Thống kê công nợ</h2>
+          <div class="hint">Tổng hợp theo cửa hàng và chi tiết theo từng đơn.</div>
+        </div>
+
+        <div class="section-title" style="margin-top:8px">
+          <h3 style="margin:0">1) Tổng nợ theo cửa hàng</h3>
+          <div class="searchbox">
+            <input id="debtSearch" placeholder="Tìm cửa hàng..." oninput="renderDebtTables()" />
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table id="debtByShopTable">
+            <thead><tr><th>Cửa hàng</th><th class="right">Tổng còn nợ</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="section-title" style="margin-top:16px">
+          <h3 style="margin:0">2) Chi tiết từng đơn còn nợ</h3>
+        </div>
+        <div class="table-wrapper">
+          <table id="debtEntriesTable">
+            <thead><tr><th>#</th><th>Cửa hàng</th><th>Máy/IMEI</th><th class="right">Còn nợ</th><th>Hành động</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPORT -->
+    <section id="reportTab" class="tabpanel" hidden>
+      <div class="card">
+        <div class="section-title">
+          <h2>Báo cáo theo ngày</h2>
+          <div class="toolbar">
+            <button class="btn" onclick="buildDailyReport(); exportReportCSV()">Xuất CSV Báo cáo</button>
+          </div>
+        </div>
+        <div class="hint">Hiển thị theo ngày tạo. Không lọc tuần/tháng trong phiên bản này.</div>
+
+        <div class="table-wrapper">
+          <table id="reportTable">
+            <thead>
+              <tr>
+                <th>Ngày</th>
+                <th class="right">Số phiếu Retail</th>
+                <th class="right">Số đơn Wholesale</th>
+                <th class="right">Tổng vốn (đ)</th>
+                <th class="right">Tổng doanh thu (đ)</th>
+                <th class="right">Lợi nhuận (đ)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      © TTM Mobile — Lưu cục bộ, không cần internet. Gợi ý: Xuất CSV để sao lưu định kỳ.
+    </footer>
+  </div>
+
+  <!-- Modal giao hàng / thu tiền cho WHOLESALE -->
+  <div class="modal-backdrop" id="deliverModalBk">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deliverTitle">
+      <header id="deliverTitle">Giao hàng / Thu tiền</header>
+      <div class="body">
+        <div class="hint" id="deliverInfo">Đơn: ...</div>
+        <div class="row" style="margin-top:8px">
+          <div class="col-6">
+            <label>Phương thức</label>
+            <select id="payMethod">
+              <option value="cash">Tiền mặt</option>
+              <option value="bank">Ngân hàng</option>
+              <option value="debt">Công nợ</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label>Số tiền thanh toán</label>
+            <input id="payAmount" type="number" min="0" value="0" />
+          </div>
+          <div class="col-12">
+            <span class="badge sm" id="deliverRemain">Còn lại:</span>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <button class="btn gray" onclick="closeDeliverModal()">Hủy</button>
+        <button class="btn success" onclick="confirmDeliver()">Xác nhận</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // ===== Utils =====
+  const $ = (id)=>document.getElementById(id)
+  const uid = ()=> Date.now().toString(36)+Math.floor(Math.random()*1e3).toString(36)
+  const toDateStr = (iso)=>{
+    if(!iso) return '';
+    const d=new Date(iso);
+    if(isNaN(d)) return '';
+    const y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
+    return `${y}-${m}-${day}`
+  }
+  const todayStr = ()=>{
+    const d=new Date();
+    const y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
+    return `${y}-${m}-${day}`
+  }
+  const formatNum = (n)=> Number(n||0).toLocaleString('vi-VN')
+  const escapeHtml = (s)=> s===0||s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''
+
+  // ===== Storage keys =====
+  const KEY_RETAIL='ttm_retail_v1'
+  const KEY_WHOLE ='ttm_whole_v1'
+  const load = (k)=>{ try{return JSON.parse(localStorage.getItem(k)||'[]')}catch(e){return[]} }
+  const save = (k,v)=> localStorage.setItem(k, JSON.stringify(v))
+
+  // ===== Device detect =====
+  function detectDevice(){
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      || window.matchMedia('(max-width: 820px)').matches
+    $('deviceBadge').textContent = 'Thiết bị: ' + (isMobile? 'Mobile':'Desktop')
+  }
+  detectDevice(); window.addEventListener('resize', detectDevice)
+
+  // ===== Tabs =====
+  document.querySelectorAll('.tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const tabId = btn.getAttribute('data-tab')
+      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'))
+      btn.classList.add('active')
+      document.querySelectorAll('.tabpanel').forEach(sec=>sec.hidden = sec.id !== tabId)
+    })
+  })
+
+  // ===== Header today totals =====
+  function updateTodayTotals(){
+    const t=todayStr()
+    const r = load(KEY_RETAIL).filter(x=>toDateStr(x.created)===t)
+    const w = load(KEY_WHOLE ).filter(x=>toDateStr(x.created)===t)
+    const cost = [...r,...w].reduce((s,x)=>s+Number(x.cost||0),0)
+    const profit = [...r,...w].reduce((s,x)=>s+((Number(x.price)||0)-(Number(x.cost)||0)),0)
+    $('todayCost').textContent = formatNum(cost)
+    $('todayProfit').textContent = formatNum(profit)
+  }
+
+  // ===== RETAIL RENDER =====
+  function renderRetail(){
+    const tbody = $('retailTable').querySelector('tbody')
+    const data = load(KEY_RETAIL)
+    tbody.innerHTML=''
+    data.forEach((row,i)=>{
+      const profit = (Number(row.price)||0)-(Number(row.cost)||0)
+      const tr = document.createElement('tr')
+      tr.setAttribute('data-search', (row.imei+' '+row.customer+' '+row.model).toLowerCase())
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${escapeHtml(row.imei)}</td>
+        <td>${escapeHtml(row.customer)}<div class="hint">${escapeHtml(row.phone)}</div></td>
+        <td>${escapeHtml(row.model)}</td>
+        <td class="right">${formatNum(row.cost)}</td>
+        <td class="right">${formatNum(row.price)}</td>
+        <td class="right">${formatNum(profit)}</td>
+        <td>${escapeHtml(row.note)}</td>
+        <td>${escapeHtml(row.staff)}</td>
+        <td class="${row.delivered?'status-delivered':'status-pending'}">${row.delivered?'Đã giao':'Chưa'}</td>
+        <td class="actions">
+          ${row.delivered? '' : `<button class="btn success" onclick="markDelivered('${row.id}','retail')">Đã giao</button>`}
+          <button class="btn gray" onclick="editRetail('${row.id}')">Sửa</button>
+          <button class="btn danger" onclick="removeItem('${row.id}','retail')">Xóa</button>
+        </td>`
+      tbody.appendChild(tr)
+    })
+    $('retailCount').textContent = data.length
+    updateTodayTotals(); buildDailyReport()
+    filterTable('retail')
+  }
+
+  // ===== WHOLESALE RENDER =====
+  function renderWholesale(){
+    const tbody = $('whTable').querySelector('tbody')
+    const data = load(KEY_WHOLE)
+    tbody.innerHTML=''
+    data.forEach((row,i)=>{
+      const profit = (Number(row.price)||0)-(Number(row.cost)||0)
+      const tr = document.createElement('tr')
+      tr.setAttribute('data-search', (row.shop+' '+(row.device||'')+' '+(row.imei||'')).toLowerCase())
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${escapeHtml(row.shop)}</td>
+        <td>${escapeHtml(row.device||'')}<div class="hint">${escapeHtml(row.imei||'')}</div></td>
+        <td>${escapeHtml(row.status||'')}</td>
+        <td class="right">${formatNum(row.cost)}</td>
+        <td class="right">${formatNum(row.price)}</td>
+        <td class="right">${formatNum(profit)}</td>
+        <td class="right">${formatNum(row.paid||0)}</td>
+        <td class="right">${formatNum(row.debt||0)}</td>
+        <td class="${row.delivered?'status-delivered':'status-pending'}">${row.delivered?'Đã giao':'Chưa'}</td>
+        <td class="actions">
+          ${row.delivered? '' : `<button class="btn success" onclick="openDeliverModal('${row.id}')">Giao hàng/Thu tiền</button>`}
+          <button class="btn gray" onclick="editWholesale('${row.id}')">Sửa</button>
+          <button class="btn danger" onclick="removeItem('${row.id}','wholesale')">Xóa</button>
+        </td>`
+      tbody.appendChild(tr)
+    })
+    $('whCount').textContent = data.length
+    updateTodayTotals(); buildDailyReport()
+    filterTable('wh')
+    renderDebtTables()
+  }
+
+  // ===== FILTER SEARCH =====
+  window.filterTable = function(which){
+    if(which==='retail'){
+      const q = ($('searchRetail').value||'').toLowerCase().trim()
+      document.querySelectorAll('#retailTable tbody tr').forEach(tr=>{
+        const hay = tr.getAttribute('data-search') || ''
+        tr.style.display = hay.includes(q) ? '' : 'none'
+      })
+    } else {
+      const q = ($('searchWh').value||'').toLowerCase().trim()
+      document.querySelectorAll('#whTable tbody tr').forEach(tr=>{
+        const hay = tr.getAttribute('data-search') || ''
+        tr.style.display = hay.includes(q) ? '' : 'none'
+      })
+    }
+  }
+
+  // ===== REPORT (daily) =====
+  let lastReportRows = []
+  function buildDailyReport(){
+    const map = {}
+    const acc = (item,isRetail)=>{
+      const d = toDateStr(item.created)||'N/A'
+      if(!map[d]) map[d]={retail:0,whole:0,cost:0,price:0}
+      isRetail? map[d].retail++ : map[d].whole++
+      map[d].cost += Number(item.cost||0)
+      map[d].price += Number(item.price||0)
+    }
+    load(KEY_RETAIL).forEach(x=>acc(x,true))
+    load(KEY_WHOLE ).forEach(x=>acc(x,false))
+
+    const rows = Object.entries(map)
+      .sort((a,b)=>a[0]<b[0]?1:-1)
+      .map(([date,v])=>({date, retail:v.retail, whole:v.whole, cost:v.cost, price:v.price, profit:v.price-v.cost}))
+    lastReportRows = rows
+
+    const tbody = $('reportTable').querySelector('tbody')
+    if(!tbody) return
+    tbody.innerHTML=''
+    rows.forEach(r=>{
+      const tr = document.createElement('tr')
+      tr.innerHTML = `
+        <td>${r.date}</td>
+        <td class="right">${formatNum(r.retail)}</td>
+        <td class="right">${formatNum(r.whole)}</td>
+        <td class="right">${formatNum(r.cost)}</td>
+        <td class="right">${formatNum(r.price)}</td>
+        <td class="right">${formatNum(r.profit)}</td>`
+      tbody.appendChild(tr)
+    })
+  }
+  window.buildDailyReport = buildDailyReport
+  window.exportReportCSV = function(){
+    if(!lastReportRows.length){ alert('Chưa có dữ liệu báo cáo.'); return }
+    const keys = ['date','retail','whole','cost','price','profit']
+    const csv = [keys.join(',')].concat(
+      lastReportRows.map(r=>keys.map(k=>`"${String(r[k]??'').replace(/"/g,'""')}"`).join(','))
+    ).join('\n')
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href=url; a.download='ttm_baocao_ngay.csv'; a.click(); URL.revokeObjectURL(url)
+  }
+
+  // ===== CSV ALL =====
+  window.exportAllCSV = function(){
+    const r = load(KEY_RETAIL), w = load(KEY_WHOLE)
+    const rows = [
+      ...r.map(x=>({
+        type:'retail',
+        id:x.id,
+        created:x.created,
+        shop:'',
+        device:x.model||'',
+        imei:x.imei||'',
+        status:'',
+        desc:x.note||'',
+        received_by:x.staff||'',
+        debt:'',
+        paid:'',
+        cost:x.cost,
+        price:x.price,
+        profit:(Number(x.price||0)-Number(x.cost||0)),
+        note:x.note||'',
+        delivered:x.delivered
+      })),
+      ...w.map(x=>({
+        type:'wholesale',
+        id:x.id,
+        created:x.created,
+        shop:x.shop,
+        device:x.device||'',
+        imei:x.imei||'',
+        status:x.status||'',
+        desc:x.note||'',
+        received_by:x.received_by||'',
+        debt:x.debt||0,
+        paid:x.paid||0,
+        cost:x.cost,
+        price:x.price,
+        profit:(Number(x.price||0)-Number(x.cost||0)),
+        note:x.note||'',
+        delivered:x.delivered
+      }))
+    ]
+    if(!rows.length){ alert('Không có dữ liệu để xuất.'); return }
+    const keys = ['type','id','created','shop','device','imei','status','desc','received_by','debt','paid','cost','price','profit','note','delivered']
+    const csv = [keys.join(',')].concat(
+      rows.map(r=> keys.map(k=>`"${String(r[k]??'').replace(/"/g,'""')}"`).join(','))
+    ).join('\n')
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href=url; a.download='ttm_all_retail_wholesale.csv'; a.click(); URL.revokeObjectURL(url)
+  }
+
+  // ===== RETAIL CRUD =====
+  window.addRetail = function(){
+    const obj = {
+      id:uid(),
+      imei:$('r_imei').value.trim(),
+      model:$('r_model').value.trim(),
+      customer:$('r_customer').value.trim(),
+      phone:$('r_phone').value.trim(),
+      pass:$('r_pass').value.trim(),
+      cost:Number($('r_cost').value)||0,
+      price:Number($('r_price').value)||0,
+      note:$('r_note').value.trim(),
+      staff:$('r_staff').value.trim(),
+      delivered:false,
+      created:new Date().toISOString()
+    }
+    const arr=load(KEY_RETAIL); arr.unshift(obj); save(KEY_RETAIL,arr)
+    renderRetail(); clearRetailForm()
+  }
+  window.clearRetailForm = function(){
+    ['r_imei','r_model','r_customer','r_phone','r_pass','r_note','r_staff'].forEach(id=>$(id).value='')
+    $('r_cost').value=0; $('r_price').value=0
+  }
+  window.editRetail = function(id){
+    const arr=load(KEY_RETAIL); const idx=arr.findIndex(x=>x.id===id); if(idx<0) return alert('Không tìm thấy phiếu')
+    const row=arr[idx]
+    $('r_imei').value=row.imei; $('r_model').value=row.model; $('r_customer').value=row.customer;
+    $('r_phone').value=row.phone; $('r_pass').value=row.pass; $('r_cost').value=row.cost;
+    $('r_price').value=row.price; $('r_note').value=row.note; $('r_staff').value=row.staff;
+    arr.splice(idx,1); save(KEY_RETAIL,arr); renderRetail()
+  }
+
+  // ===== WHOLESALE CRUD =====
+  window.addWholesale = function(){
+    const obj = {
+      id:uid(),
+      shop:$('w_shop').value.trim(),
+      device:$('w_device').value.trim(),
+      imei:$('w_imei').value.trim(),
+      price:Number($('w_price').value)||0, // Giá nhận sửa
+      cost:Number($('w_cost').value)||0,   // Vốn
+      status:$('w_status').value,
+      note:$('w_note').value.trim(),
+      delivered:false,
+      paid:0, // tổng đã thanh toán
+      debt:0, // còn nợ
+      payments:[], // lịch sử thanh toán
+      created:new Date().toISOString()
+    }
+    const arr=load(KEY_WHOLE); arr.unshift(obj); save(KEY_WHOLE,arr)
+    renderWholesale(); clearWholesaleForm()
+  }
+  window.clearWholesaleForm = function(){
+    ['w_shop','w_device','w_imei','w_note'].forEach(id=>$(id).value='')
+    $('w_price').value=0; $('w_cost').value=0; $('w_status').value='Đang nhận'
+  }
+  window.editWholesale = function(id){
+    const arr=load(KEY_WHOLE); const idx=arr.findIndex(x=>x.id===id); if(idx<0) return alert('Không tìm thấy đơn')
+    const row=arr[idx]
+    $('w_shop').value=row.shop; $('w_device').value=row.device||''; $('w_imei').value=row.imei||''
+    $('w_price').value=row.price; $('w_cost').value=row.cost; $('w_status').value=row.status||'Đang nhận'; $('w_note').value=row.note||''
+    arr.splice(idx,1); save(KEY_WHOLE,arr); renderWholesale()
+  }
+
+  // ===== DELIVER MODAL FLOW =====
+  let currentDeliverId = null
+  window.openDeliverModal = function(id){
+    currentDeliverId = id
+    const arr = load(KEY_WHOLE)
+    const idx = arr.findIndex(x=>x.id===id); if(idx<0) return
+    const row = arr[idx]
+    const remain = Math.max(0, Number(row.price||0) - Number(row.paid||0))
+    $('deliverInfo').innerHTML =
+      'Cửa hàng: <b>'+escapeHtml(row.shop)+'</b> • Máy: <b>'+escapeHtml(row.device||'')+'</b> • IMEI: <b>'+escapeHtml(row.imei||'')+'</b><br>' +
+      'Giá nhận: <b>'+formatNum(row.price)+'</b> đ • Đã TT: <b>'+formatNum(row.paid||0)+'</b> đ'
+    $('payMethod').value = 'cash'
+    $('payAmount').value = remain
+    $('deliverRemain').textContent = 'Còn lại: ' + formatNum(remain) + ' đ'
+    $('deliverModalBk').style.display='flex'
+  }
+  window.closeDeliverModal = function(){
+    $('deliverModalBk').style.display='none'
+    currentDeliverId = null
+  }
+  $('payAmount').addEventListener('input', ()=>{
+    const arr = load(KEY_WHOLE)
+    const idx = arr.findIndex(x=>x.id===currentDeliverId); if(idx<0) return
+    const row = arr[idx]
+    const input = Number($('payAmount').value)||0
+    const remain = Math.max(0, Number(row.price||0) - Number(row.paid||0) - input)
+    $('deliverRemain').textContent = 'Còn lại: ' + formatNum(remain) + ' đ'
+  })
+
+  window.confirmDeliver = function(){
+    if(!currentDeliverId) return
+    const arr = load(KEY_WHOLE)
+    const idx = arr.findIndex(x=>x.id===currentDeliverId); if(idx<0) return
+    const row = arr[idx]
+
+    const method = $('payMethod').value // cash/bank/debt
+    let amount = Number($('payAmount').value)||0
+    const price = Number(row.price||0)
+    const already = Number(row.paid||0)
+    const remainBefore = Math.max(0, price - already)
+
+    if(method==='debt'){
+      amount = 0 // không thu lúc giao
+    } else {
+      amount = Math.max(0, Math.min(amount, remainBefore))
+      if(amount>0){
+        row.paid = already + amount
+        row.payments = row.payments || []
+        row.payments.push({date:new Date().toISOString(), method, amount})
+      }
+    }
+    row.debt = Math.max(0, price - Number(row.paid||0))
+    row.delivered = true
+    arr[idx] = row
+    save(KEY_WHOLE, arr)
+    closeDeliverModal()
+    renderWholesale()
+    alert('Đã cập nhật giao hàng. Còn nợ: ' + formatNum(row.debt) + ' đ')
+  }
+
+  // ===== DEBT TABLES =====
+  function renderDebtTables(){
+    const data = load(KEY_WHOLE)
+    const q = ($('debtSearch')?.value || '').toLowerCase().trim()
+
+    // --- Tổng nợ theo cửa hàng ---
+    const map = {}
+    data.forEach(x=>{
+      const d = Number(x.debt||0)
+      if(d>0){
+        if(!map[x.shop]) map[x.shop]=0
+        map[x.shop]+=d
+      }
+    })
+    const tbody1 = $('debtByShopTable').querySelector('tbody')
+    tbody1.innerHTML=''
+    Object.entries(map)
+      .filter(([shop])=> shop.toLowerCase().includes(q))
+      .sort((a,b)=>b[1]-a[1])
+      .forEach(([shop, amt])=>{
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td>${escapeHtml(shop)}</td><td class="right">${formatNum(amt)}</td>`
+        tbody1.appendChild(tr)
+      })
+    if(!tbody1.children.length){
+      const tr = document.createElement('tr')
+      tr.innerHTML = '<td colspan="2" class="hint">Không có công nợ khớp tìm kiếm.</td>'
+      tbody1.appendChild(tr)
+    }
+
+    // --- Chi tiết từng đơn ---
+    const entries = data.filter(x=>Number(x.debt||0)>0 && x.shop.toLowerCase().includes(q))
+    const tbody2 = $('debtEntriesTable').querySelector('tbody')
+    tbody2.innerHTML=''
+    entries.forEach((x,i)=>{
+      const tr = document.createElement('tr')
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${escapeHtml(x.shop)}</td>
+        <td>${escapeHtml(x.device||'')}<div class="hint">${escapeHtml(x.imei||'')}</div></td>
+        <td class="right">${formatNum(x.debt)}</td>
+        <td><button class="btn success" onclick="collectDebt('${x.id}')">Thu nợ</button></td>`
+      tbody2.appendChild(tr)
+    })
+    if(!tbody2.children.length){
+      const tr = document.createElement('tr')
+      tr.innerHTML = '<td colspan="5" class="hint">Không có đơn còn nợ khớp tìm kiếm.</td>'
+      tbody2.appendChild(tr)
+    }
+  }
+
+  window.collectDebt = function(id){
+    const arr = load(KEY_WHOLE)
+    const idx = arr.findIndex(x=>x.id===id); if(idx<0) return
+    const row = arr[idx]
+    const remain = Math.max(0, Number(row.price||0) - Number(row.paid||0))
+    const amountStr = prompt('Nhập số tiền KHÁCH TRẢ (đ) — còn nợ '+formatNum(remain)+' đ', remain)
+    if(amountStr===null) return // hủy
+    let amount = Number(amountStr)||0
+    amount = Math.max(0, Math.min(amount, remain))
+    if(amount<=0) return alert('Số tiền không hợp lệ.')
+    const method = prompt('Phương thức: cash/bank (mặc định cash)', 'cash') || 'cash'
+    row.paid = Number(row.paid||0) + amount
+    row.debt = Math.max(0, Number(row.price||0) - row.paid)
+    row.payments = row.payments || []
+    row.payments.push({date:new Date().toISOString(), method, amount})
+    arr[idx] = row
+    save(KEY_WHOLE, arr)
+    renderWholesale()
+    alert('Đã ghi nhận thanh toán '+formatNum(amount)+' đ. Còn nợ: '+formatNum(row.debt)+' đ')
+  }
+
+  // ===== COMMON ACTIONS =====
+  window.markDelivered = function(id,type){
+    if(type==='retail'){
+      const arr=load(KEY_RETAIL); const idx=arr.findIndex(x=>x.id===id); if(idx<0) return
+      arr[idx].delivered=true; save(KEY_RETAIL,arr); renderRetail()
+      const profit = Number(arr[idx].price||0)-Number(arr[idx].cost||0)
+      alert('Phiếu IMEI: '+(arr[idx].imei||'')+'\nLợi nhuận: '+formatNum(profit)+' VNĐ')
+    }else{
+      openDeliverModal(id)
+    }
+  }
+  window.removeItem = function(id,type){
+    if(!confirm('Xóa mục này?')) return
+    if(type==='retail'){
+      let arr=load(KEY_RETAIL)
+      arr=arr.filter(x=>x.id!==id)
+      save(KEY_RETAIL,arr)
+      renderRetail()
+    }else{
+      let arr=load(KEY_WHOLE)
+      arr=arr.filter(x=>x.id!==id)
+      save(KEY_WHOLE,arr)
+      renderWholesale()
+    }
+  }
+
+  // ===== Export CSV riêng =====
+  window.exportCSV = function(type){
+    const rows = type==='retail' ? load(KEY_RETAIL) : load(KEY_WHOLE)
+    if(!rows.length) return alert('Không có dữ liệu để xuất.')
+    const keys = type==='retail'
+      ? ['id','created','imei','model','customer','phone','pass','cost','price','note','staff','delivered']
+      : ['id','created','shop','device','imei','status','cost','price','paid','debt','note','delivered']
+    const csv = [keys.join(',')].concat(
+      rows.map(r=>keys.map(k=>`"${String(r[k]??'').replace(/"/g,'""')}"`).join(','))
+    ).join('\n')
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url
+    a.download=(type==='retail'?'ttm_retail_export.csv':'ttm_wholesale_export.csv')
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ===== Init =====
+  function init(){
+    renderRetail()
+    renderWholesale()
+    updateTodayTotals()
+    buildDailyReport()
+  }
+  init()
+
+})();
+</script>
+</body>
+</html>
