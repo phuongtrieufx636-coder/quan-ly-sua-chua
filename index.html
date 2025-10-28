@@ -53,6 +53,7 @@
   .nowrap{white-space:nowrap}
   @media (max-width: 800px){
     .row-6,.row-4,.row-3,.row-12{grid-column: span 12}
+    table{min-width:720px} /* thân thiện mobile hơn */
   }
 </style>
 </head>
@@ -62,6 +63,7 @@
     <div class="toolbar">
       <h1>Quản lý sửa chữa điện thoại</h1>
       <span class="chip">Dữ liệu lưu trên máy (local)</span>
+      <span class="chip">Thiết bị: <span id="deviceType">...</span></span>
       <span class="chip">Giờ hệ thống: <span id="nowStr"></span></span>
     </div>
     <div class="tabs">
@@ -70,10 +72,10 @@
       <button class="tab-btn" data-tab="debt">Công nợ</button>
       <button class="tab-btn" data-tab="report">Báo cáo</button>
       <span style="flex:1"></span>
-      <button id="btnExport" class="tab-btn">Xuất JSON</button>
+      <button id="btnExportCsv" class="tab-btn">Xuất CSV</button>
       <label class="tab-btn" style="margin:0; cursor:pointer">
-        Nhập JSON
-        <input id="importJson" type="file" accept="application/json" style="display:none">
+        Nhập CSV
+        <input id="importCsv" type="file" accept=".csv,text/csv" style="display:none">
       </label>
       <button id="btnReset" class="tab-btn" style="border-color:var(--danger); color:var(--danger)">Xóa TẤT CẢ dữ liệu</button>
     </div>
@@ -258,14 +260,22 @@
 const $ = s => document.querySelector(s);
 const fmt = new Intl.NumberFormat('vi-VN');
 function toDateOnly(d){ const t = new Date(d); t.setHours(0,0,0,0); return t; }
-function startOfWeek(d=new Date()){ const t = new Date(d); const day=(t.getDay()+6)%7; t.setHours(0,0,0,0); t.setDate(t.getDate()-day); return t; } // Monday
+function startOfWeek(d=new Date()){ const t = new Date(d); const day=(t.getDay()+6)%7; t.setHours(0,0,0,0); t.setDate(t.getDate()-day); return t; }
 function startOfMonth(d=new Date()){ const t = new Date(d.getFullYear(), d.getMonth(), 1); t.setHours(0,0,0,0); return t; }
 function inRange(ts, from, to){ const x=new Date(ts); x.setHours(0,0,0,0); return (!from || x>=from)&&(!to || x<=to); }
 function uid(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); }
+
+function detectDevice(){
+  const ua = navigator.userAgent || '';
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  return isMobile ? 'Mobile' : 'PC';
+}
 function nowStr(){ const n = new Date(); return n.toLocaleString('vi-VN'); }
 document.addEventListener('DOMContentLoaded', ()=>{
   const el = document.getElementById('nowStr');
   if(el){ el.textContent = nowStr(); setInterval(()=> el.textContent = nowStr(), 1000); }
+  const dev = document.getElementById('deviceType');
+  if(dev) dev.textContent = detectDevice();
 });
 
 /** ========= Storage ========= **/
@@ -280,7 +290,7 @@ function save(){ localStorage.setItem(KEY, JSON.stringify(db)); }
 
 /** ========= Model ========= **/
 function makeRecord(type, fields){
-  const base = {
+  return {
     id: uid(), type,
     name: fields.name?.trim()||'',
     shop: fields.shop?.trim()||'',
@@ -296,7 +306,6 @@ function makeRecord(type, fields){
     deliveredAt: null,
     payments: []
   };
-  return base;
 }
 function listAll(){ return [...db.le, ...db.si]; }
 function setRecord(rec){
@@ -384,7 +393,7 @@ function renderTable(type){
     btn.addEventListener('click', onActionBtn);
   });
 
-  // KPIs (month / debt) — debt only when status==='debt'
+  // KPIs
   const first = startOfMonth(new Date());
   const delivered = (type==='le'? db.le:db.si).filter(x=>x.deliveredAt && new Date(x.deliveredAt)>=first);
   const profitSum = delivered.reduce((s,x)=> s + profit(x), 0);
@@ -525,7 +534,7 @@ function openEditDialog(rec){
   });
 }
 
-/** ========= Handlers ========= **/
+/** ========= Add handlers ========= **/
 document.getElementById('addLe').onclick = ()=>{
   const rec = makeRecord('le',{
     name: document.getElementById('le_name').value,
@@ -651,27 +660,115 @@ document.querySelectorAll('#tab-report .btn[data-range]').forEach(b=>{
 });
 document.getElementById('rp_apply').onclick = ()=> renderReport('custom');
 
-/** ========= Export / Import / Reset ========= **/
-document.getElementById('btnExport').onclick = ()=>{
-  const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
+/** ========= Export CSV / Import CSV / Reset ========= **/
+function csvEscape(v){
+  if(v==null) v='';
+  v = String(v);
+  if(v.includes('"')) v = v.replace(/"/g, '""');
+  if(/[",\n]/.test(v)) return `"${v}"`;
+  return v;
+}
+function toCSV(){
+  const rows = [['id','type','name','shop','device','imei','pass','condition','price','cost','note','status','createdAt','deliveredAt','paid','payments_detail']];
+  const all = listAll();
+  for(const r of all){
+    const paid = r.payments.reduce((s,p)=> s + Number(p.amount||0), 0);
+    const paymentsDetail = r.payments.map(p=> `${p.amount}|${(p.note||'').replaceAll('|','/') }|${p.at}`).join(';');
+    rows.push([r.id,r.type,r.name,r.shop,r.device,r.imei,r.pass,r.condition,r.price,r.cost,r.note,r.status,r.createdAt||'',r.deliveredAt||'',paid, paymentsDetail]);
+  }
+  return rows.map(row => row.map(csvEscape).join(',')).join('\n');
+}
+
+function parseCSV(text){
+  const rows=[]; let i=0, cur='', inQ=false, row=[];
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){
+        if(text[i+1]==='"'){ cur+='"'; i++; } else { inQ=false; }
+      } else { cur+=c; }
+    } else {
+      if(c==='"'){ inQ=true; }
+      else if(c===','){ row.push(cur); cur=''; }
+      else if(c==='\n'){
+        row.push(cur); rows.push(row); row=[]; cur='';
+      } else if(c==='\r'){ /* skip */ }
+      else { cur+=c; }
+    }
+    i++;
+  }
+  row.push(cur); rows.push(row);
+  // header
+  const header = rows.shift().map(h=>h.trim());
+  return rows.filter(r=> r.some(x=>x.trim()!=='')).map(cols=>{
+    const obj={};
+    header.forEach((h,idx)=> obj[h]= cols[idx]??'');
+    return obj;
+  });
+}
+
+document.getElementById('btnExportCsv').onclick = ()=>{
+  const csv = toCSV();
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `repair-data-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `repair-data-${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 };
-document.getElementById('importJson').addEventListener('change', async (e)=>{
+
+document.getElementById('importCsv').addEventListener('change', async (e)=>{
   const f = e.target.files?.[0]; if(!f) return;
   const txt = await f.text();
   try{
-    const obj = JSON.parse(txt);
-    if(!obj || !Array.isArray(obj.le) || !Array.isArray(obj.si)) throw new Error('Sai định dạng');
-    db = obj; save(); renderAll();
-    alert('Nhập dữ liệu thành công!');
+    const items = parseCSV(txt);
+    const next = { le:[], si:[] };
+    for(const it of items){
+      const rec = {
+        id: it.id || uid(),
+        type: (it.type==='si'?'si':'le'),
+        name: it.name||'',
+        shop: it.shop||'',
+        device: it.device||'',
+        imei: it.imei||'',
+        pass: it.pass||'',
+        condition: it.condition||'',
+        price: Number(it.price||0),
+        cost: Number(it.cost||0),
+        note: it.note||'',
+        status: it.status||'received',
+        createdAt: it.createdAt || new Date().toISOString(),
+        deliveredAt: it.deliveredAt || null,
+        payments: []
+      };
+      // payments detail
+      if(it.payments_detail){
+        const parts = String(it.payments_detail).split(';').filter(Boolean);
+        for(const p of parts){
+          const [amount, note, at] = p.split('|');
+          if(amount && !isNaN(Number(amount))){
+            rec.payments.push({amount:Number(amount), note: note||'', at: at || new Date().toISOString()});
+          }
+        }
+      } else if(it.paid && Number(it.paid)>0){
+        rec.payments.push({amount:Number(it.paid), note:'Imported', at:new Date().toISOString()});
+      }
+      // adjust status consistency
+      const stillOwed = Math.max(0, Number(rec.price||0) - rec.payments.reduce((s,p)=>s+Number(p.amount||0),0));
+      if(rec.deliveredAt){
+        rec.status = stillOwed>0 ? 'debt' : (rec.status==='delivered'?'delivered':'delivered');
+      } else {
+        if(rec.status==='debt') rec.status='received'; // chưa giao thì không thể là nợ
+      }
+      if(rec.type==='le') next.le.push(rec); else next.si.push(rec);
+    }
+    db = next; save(); renderAll();
+    alert('Nhập CSV thành công!');
   }catch(err){
-    alert('File không đúng định dạng!');
+    alert('Không thể đọc CSV. Vui lòng kiểm tra định dạng.');
   }
   e.target.value='';
 });
+
 document.getElementById('btnReset').onclick = ()=>{
   if(confirm('Bạn chắc chắn muốn xóa TẤT CẢ dữ liệu?')){ db={le:[], si:[]}; save(); renderAll(); }
 };
