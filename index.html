@@ -15,8 +15,8 @@
   header{position:sticky; top:0; z-index:10; background:var(--card); border-bottom:1px solid var(--border)}
   .wrap{max-width:1100px; margin:auto; padding:16px}
   h1{font-size:20px; margin:4px 0 0}
-  .tabs{display:flex; gap:8px; padding:8px 0 12px}
-  .tab-btn{padding:10px 14px; border:1px solid var(--border); background:var(--card); border-radius:10px; cursor:pointer; font-weight:600}
+  .tabs{display:flex; gap:8px; padding:8px 0 12px; overflow:auto}
+  .tab-btn{padding:10px 14px; border:1px solid var(--border); background:var(--card); border-radius:10px; cursor:pointer; font-weight:600; white-space:nowrap}
   .tab-btn.active{border-color:var(--accent); color:#fff; background:var(--accent)}
   .grid{display:grid; grid-template-columns: repeat(12,1fr); gap:10px}
   .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px}
@@ -113,7 +113,7 @@
       </div>
       <div class="actions" style="margin-top:10px">
         <button class="btn primary" id="addLe">Thêm phiếu</button>
-        <span class="hint">Phiếu mặc định ở trạng thái <b>Đã nhận</b>. Chỉ khi bấm <b>Đã giao</b> mới ghi nhận lợi nhuận.</span>
+        <span class="hint">Phiếu mặc định ở trạng thái <b>Đã nhận</b>. Chỉ khi bấm <b>Đã giao</b> mới ghi nhận lợi nhuận/công nợ.</span>
       </div>
     </div>
 
@@ -174,7 +174,7 @@
       </div>
       <div class="actions" style="margin-top:10px">
         <button class="btn primary" id="addSi">Thêm phiếu</button>
-        <span class="hint">Chỉ tính lợi nhuận khi bấm <b>Đã giao</b>.</span>
+        <span class="hint">Chỉ tính lợi nhuận/công nợ khi bấm <b>Đã giao</b>.</span>
       </div>
     </div>
 
@@ -257,7 +257,6 @@
 /** ========= Utilities ========= **/
 const $ = s => document.querySelector(s);
 const fmt = new Intl.NumberFormat('vi-VN');
-const todayISO = () => new Date().toISOString().slice(0,10);
 function toDateOnly(d){ const t = new Date(d); t.setHours(0,0,0,0); return t; }
 function startOfWeek(d=new Date()){ const t = new Date(d); const day=(t.getDay()+6)%7; t.setHours(0,0,0,0); t.setDate(t.getDate()-day); return t; } // Monday
 function startOfMonth(d=new Date()){ const t = new Date(d.getFullYear(), d.getMonth(), 1); t.setHours(0,0,0,0); return t; }
@@ -300,7 +299,7 @@ function makeRecord(type, fields){
     status: 'received',
     createdAt: new Date().toISOString(),
     deliveredAt: null,
-    payments: [] // payments towards price
+    payments: []
   };
   return base;
 }
@@ -316,7 +315,7 @@ function removeRecord(type,id){
   save();
 }
 
-/** ========= Render helpers ========= **/
+/** ========= Helpers ========= **/
 function statusBadge(s){
   const map = {received:'st-received', progress:'st-progress', delivered:'st-delivered', debt:'st-debt'};
   const text = {received:'Đã nhận', progress:'Đang làm', delivered:'Đã giao', debt:'Công nợ'};
@@ -332,12 +331,9 @@ function actionsCell(rec){
       <button class="btn ghost" data-act="debt" data-id="${rec.id}" data-type="${rec.type}">Công nợ</button>
     </div>`;
 }
-function money(n){ return n? fmt.format(n): '0'; }
-function owed(rec){ // amount still owed
-  const paid = rec.payments.reduce((s,p)=>s+Number(p.amount||0),0);
-  return Math.max(0, Number(rec.price||0) - paid);
-}
-function profit(rec){ return Number(rec.price||0) - Number(rec.cost||0); }
+const money = n => n? fmt.format(n): '0';
+const owed = rec => Math.max(0, Number(rec.price||0) - rec.payments.reduce((s,p)=>s+Number(p.amount||0),0));
+const profit = rec => Number(rec.price||0) - Number(rec.cost||0);
 
 /** ========= Render tables ========= **/
 function renderTable(type){
@@ -367,6 +363,7 @@ function renderTable(type){
   </tr></thead><tbody>`;
 
   for(const r of arr){
+    const showDebtCell = (owed(r)>0 && (r.status==='debt' || r.deliveredAt));
     html += `<tr>
       <td>${new Date(r.createdAt).toLocaleDateString('vi-VN')}</td>
       <td>${type==='le'?(r.name||'-'):(r.shop||'-')}</td>
@@ -377,7 +374,7 @@ function renderTable(type){
       <td class="nowrap">${money(r.cost)}</td>
       <td>${statusBadge(r.status)}</td>
       <td>${r.deliveredAt? new Date(r.deliveredAt).toLocaleString('vi-VN'): '-'}</td>
-      <td class="nowrap">${owed(r)>0? `<span class="pill" style="background:#fee2e2;color:#7f1d1d">${money(owed(r))}</span>`:'-'}</td>
+      <td class="nowrap">${showDebtCell ? `<span class="pill" style="background:#fee2e2;color:#7f1d1d">${money(owed(r))}</span>`:'-'}</td>
       <td>${r.note||''}</td>
       <td>${actionsCell(r)}</td>
     </tr>`;
@@ -389,11 +386,11 @@ function renderTable(type){
     btn.addEventListener('click', onActionBtn);
   });
 
-  // KPIs (month / debt)
+  // KPIs (month / debt) — debt only after delivery or flagged debt
   const first = startOfMonth(new Date());
   const delivered = (type==='le'? db.le:db.si).filter(x=>x.deliveredAt && new Date(x.deliveredAt)>=first);
   const profitSum = delivered.reduce((s,x)=> s + profit(x), 0);
-  const debtSum = (type==='le'? db.le:db.si).filter(x=>owed(x)>0).reduce((s,x)=> s + owed(x), 0);
+  const debtSum = (type==='le'? db.le:db.si).filter(x=> owed(x)>0 && (x.status==='debt' || x.deliveredAt)).reduce((s,x)=> s + owed(x), 0);
   (type==='le'? $('#kpiLeDelivered'):$('#kpiSiDelivered')).textContent = delivered.length;
   (type==='le'? $('#kpiLeProfit'):$('#kpiSiProfit')).textContent = money(profitSum);
   (type==='le'? $('#kpiLeDebt'):$('#kpiSiDebt')).textContent = money(debtSum);
@@ -423,6 +420,11 @@ function onActionBtn(e){
     return;
   }
   if(act==='debt'){
+    if(!rec.deliveredAt && rec.status!=='debt'){
+      alert('Chưa giao máy nên chưa phát sinh công nợ. Hãy bấm "Đã giao" trước (có thể ghi nhận khách trả một phần).');
+      openDeliverDialog(rec);
+      return;
+    }
     openDebtDialog(rec);
     return;
   }
@@ -442,13 +444,12 @@ function openDialog(title, bodyHTML, onOk){
 function closeDialog(){ dialog.style.display='none'; dgBody.innerHTML=''; dgOk.onclick=null; }
 
 function openDeliverDialog(rec){
-  const owedAmt = owed(rec);
   const body = `
     <div class="grid">
       <div class="row-12"><b>Xác nhận giao máy</b></div>
       <div class="row-6">
         <label>Số tiền khách trả ngay (VND)</label>
-        <input id="pay_now" type="number" min="0" value="${Math.min(rec.price, rec.price - rec.payments.reduce((s,p)=>s+Number(p.amount||0),0))}">
+        <input id="pay_now" type="number" min="0" value="\${Math.min(rec.price, rec.price - rec.payments.reduce((s,p)=>s+Number(p.amount||0),0))}">
       </div>
       <div class="row-6">
         <label>Ghi chú thanh toán</label>
@@ -457,8 +458,8 @@ function openDeliverDialog(rec){
       <div class="row-12 hint">Nếu khách chưa trả đủ, phần còn lại sẽ chuyển sang <b>công nợ</b>.</div>
     </div>`;
   openDialog('Đã giao máy', body, ()=>{
-    const payNow = Number($('#pay_now').value||0);
-    const note = $('#pay_note').value?.trim()||'';
+    const payNow = Number(document.querySelector('#pay_now').value||0);
+    const note = document.querySelector('#pay_note').value?.trim()||'';
     if(payNow>0){ rec.payments.push({amount:payNow, note, at:new Date().toISOString()}); }
     rec.deliveredAt = new Date().toISOString();
     rec.status = owed(rec)>0 ? 'debt' : 'delivered';
@@ -471,21 +472,20 @@ function openDebtDialog(rec){
     <div class="grid">
       <div class="row-6">
         <label>Số tiền khách trả thêm (VND)</label>
-        <input id="pay_more" type="number" min="0" value="${owed(rec)}">
+        <input id="pay_more" type="number" min="0" value="\${owed(rec)}">
       </div>
       <div class="row-6">
         <label>Ghi chú</label>
         <input id="pay_more_note" placeholder="Thu nợ đợt 2...">
       </div>
       <div class="row-12">
-        <div class="hint">Còn nợ hiện tại: <b>${money(owed(rec))} VND</b></div>
+        <div class="hint">Còn nợ hiện tại: <b>\${money(owed(rec))} VND</b></div>
       </div>
     </div>`;
   openDialog('Ghi nhận thanh toán công nợ', body, ()=>{
-    const n = Number($('#pay_more').value||0);
-    const note = $('#pay_more_note').value?.trim()||'';
+    const n = Number(document.querySelector('#pay_more').value||0);
+    const note = document.querySelector('#pay_more_note').value?.trim()||'';
     if(n>0){ rec.payments.push({amount:n, note, at:new Date().toISOString()}); }
-    // Nếu đã giao trước đó thì giữ deliveredAt; nếu chưa thì coi như giao hôm nay
     if(!rec.deliveredAt) rec.deliveredAt=new Date().toISOString();
     rec.status = owed(rec)>0 ? 'debt' : 'delivered';
     setRecord(rec); renderAll();
@@ -495,36 +495,36 @@ function openDebtDialog(rec){
 function openEditDialog(rec){
   const body = `
     <div class="grid">
-      <div class="row-6"><label>${rec.type==='le'?'Tên khách':'Cửa hàng'}</label><input id="ed_name" value="${rec.type==='le'? (rec.name||'') : (rec.shop||'')}"></div>
-      ${rec.type==='si'? `<div class="row-6"><label>Người liên hệ</label><input id="ed_contact" value="${rec.name||''}"></div>`:''}
-      <div class="row-6"><label>Tên máy</label><input id="ed_device" value="${rec.device||''}"></div>
-      <div class="row-6"><label>IMEI</label><input id="ed_imei" value="${rec.imei||''}"></div>
-      <div class="row-6"><label>Mật khẩu/Mã máy</label><input id="ed_pass" value="${rec.pass||''}"></div>
-      <div class="row-6"><label>Tình trạng</label><input id="ed_condition" value="${rec.condition||''}"></div>
-      <div class="row-6"><label>Giá thu (VND)</label><input id="ed_price" type="number" value="${rec.price||0}"></div>
-      <div class="row-6"><label>Giá vốn (VND)</label><input id="ed_cost" type="number" value="${rec.cost||0}"></div>
-      <div class="row-12"><label>Ghi chú</label><textarea id="ed_note">${rec.note||''}</textarea></div>
+      <div class="row-6"><label>\${rec.type==='le'?'Tên khách':'Cửa hàng'}</label><input id="ed_name" value="\${rec.type==='le'? (rec.name||'') : (rec.shop||'')}"></div>
+      \${rec.type==='si'? `<div class="row-6"><label>Người liên hệ</label><input id="ed_contact" value="${rec.name||''}"></div>`:''}
+      <div class="row-6"><label>Tên máy</label><input id="ed_device" value="\${rec.device||''}"></div>
+      <div class="row-6"><label>IMEI</label><input id="ed_imei" value="\${rec.imei||''}"></div>
+      <div class="row-6"><label>Mật khẩu/Mã máy</label><input id="ed_pass" value="\${rec.pass||''}"></div>
+      <div class="row-6"><label>Tình trạng</label><input id="ed_condition" value="\${rec.condition||''}"></div>
+      <div class="row-6"><label>Giá thu (VND)</label><input id="ed_price" type="number" value="\${rec.price||0}"></div>
+      <div class="row-6"><label>Giá vốn (VND)</label><input id="ed_cost" type="number" value="\${rec.cost||0}"></div>
+      <div class="row-12"><label>Ghi chú</label><textarea id="ed_note">\${rec.note||''}</textarea></div>
       <div class="row-6">
         <label>Trạng thái</label>
         <select id="ed_status">
-          <option value="received" ${rec.status==='received'?'selected':''}>Đã nhận</option>
-          <option value="progress" ${rec.status==='progress'?'selected':''}>Đang làm</option>
-          <option value="delivered" ${rec.status==='delivered'?'selected':''}>Đã giao</option>
-          <option value="debt" ${rec.status==='debt'?'selected':''}>Công nợ</option>
+          <option value="received" \${rec.status==='received'?'selected':''}>Đã nhận</option>
+          <option value="progress" \${rec.status==='progress'?'selected':''}>Đang làm</option>
+          <option value="delivered" \${rec.status==='delivered'?'selected':''}>Đã giao</option>
+          <option value="debt" \${rec.status==='debt'?'selected':''}>Công nợ</option>
         </select>
       </div>
     </div>`;
   openDialog('Sửa phiếu', body, ()=>{
-    if(rec.type==='le'){ rec.name = $('#ed_name').value.trim(); }
-    else { rec.shop = $('#ed_name').value.trim(); rec.name = ($('#ed_contact').value||'').trim(); }
-    rec.device = $('#ed_device').value.trim();
-    rec.imei = $('#ed_imei').value.trim();
-    rec.pass = $('#ed_pass').value.trim();
-    rec.condition = $('#ed_condition').value.trim();
-    rec.price = Number($('#ed_price').value||0);
-    rec.cost = Number($('#ed_cost').value||0);
-    rec.note = $('#ed_note').value.trim();
-    const newStatus = $('#ed_status').value;
+    if(rec.type==='le'){ rec.name = document.querySelector('#ed_name').value.trim(); }
+    else { rec.shop = document.querySelector('#ed_name').value.trim(); rec.name = (document.querySelector('#ed_contact')?.value||'').trim(); }
+    rec.device = document.querySelector('#ed_device').value.trim();
+    rec.imei = document.querySelector('#ed_imei').value.trim();
+    rec.pass = document.querySelector('#ed_pass').value.trim();
+    rec.condition = document.querySelector('#ed_condition').value.trim();
+    rec.price = Number(document.querySelector('#ed_price').value||0);
+    rec.cost = Number(document.querySelector('#ed_cost').value||0);
+    rec.note = document.querySelector('#ed_note').value.trim();
+    const newStatus = document.querySelector('#ed_status').value;
     rec.status = newStatus;
     if(newStatus==='delivered' && !rec.deliveredAt) rec.deliveredAt=new Date().toISOString();
     setRecord(rec); renderAll();
@@ -532,30 +532,30 @@ function openEditDialog(rec){
 }
 
 /** ========= Add handlers ========= **/
-$('#addLe').onclick = ()=>{
+document.querySelector('#addLe').onclick = ()=>{
   const rec = makeRecord('le',{
-    name: $('#le_name').value,
-    device: $('#le_device').value,
-    imei: $('#le_imei').value,
-    pass: $('#le_pass').value,
-    condition: $('#le_condition').value,
-    price: $('#le_price').value,
-    cost: $('#le_cost').value,
-    note: $('#le_note').value,
+    name: document.querySelector('#le_name').value,
+    device: document.querySelector('#le_device').value,
+    imei: document.querySelector('#le_imei').value,
+    pass: document.querySelector('#le_pass').value,
+    condition: document.querySelector('#le_condition').value,
+    price: document.querySelector('#le_price').value,
+    cost: document.querySelector('#le_cost').value,
+    note: document.querySelector('#le_note').value,
   });
   db.le.push(rec); save(); clearForm('le'); renderAll();
 };
-$('#addSi').onclick = ()=>{
+document.querySelector('#addSi').onclick = ()=>{
   const rec = makeRecord('si',{
-    shop: $('#si_shop').value,
-    name: $('#si_name').value,
-    device: $('#si_device').value,
-    imei: $('#si_imei').value,
-    pass: $('#si_pass').value,
-    condition: $('#si_condition').value,
-    price: $('#si_price').value,
-    cost: $('#si_cost').value,
-    note: $('#si_note').value,
+    shop: document.querySelector('#si_shop').value,
+    name: document.querySelector('#si_name').value,
+    device: document.querySelector('#si_device').value,
+    imei: document.querySelector('#si_imei').value,
+    pass: document.querySelector('#si_pass').value,
+    condition: document.querySelector('#si_condition').value,
+    price: document.querySelector('#si_price').value,
+    cost: document.querySelector('#si_cost').value,
+    note: document.querySelector('#si_note').value,
   });
   db.si.push(rec); save(); clearForm('si'); renderAll();
 };
@@ -563,24 +563,27 @@ function clearForm(type){
   const ids = type==='le'?
     ['le_name','le_device','le_imei','le_pass','le_condition','le_price','le_cost','le_note']:
     ['si_shop','si_name','si_device','si_imei','si_pass','si_condition','si_price','si_cost','si_note'];
-  ids.forEach(id=>{ const el=$( '#'+id ); if(!el) return; el.value=''; });
+  ids.forEach(id=>{ const el=document.querySelector('#'+id); if(!el) return; el.value=''; });
 }
 
 /** ========= Filters & KPIs ========= **/
 ['le_search','si_search','le_statusFilter','si_statusFilter'].forEach(id=>{
-  const el = $('#'+id); if(el) el.addEventListener('input', ()=> renderAll());
+  const el = document.querySelector('#'+id); if(el) el.addEventListener('input', ()=> renderAll());
 });
 
 /** ========= Debt view ========= **/
 function renderDebt(){
-  const q = $('#debt_search').value.trim().toLowerCase();
-  const arr = listAll().filter(r=> owed(r)>0 ).filter(r=>{
-    const hay = [r.type, r.name, r.shop, r.device, r.imei, r.condition, r.note].join(' ').toLowerCase();
-    return !q || hay.includes(q);
-  }).sort((a,b)=> (owed(b)-owed(a)) || (new Date(b.createdAt)-new Date(a.createdAt)));
+  const q = document.querySelector('#debt_search').value.trim().toLowerCase();
+  const arr = listAll()
+    .filter(r=> owed(r)>0 && (r.status==='debt' || r.deliveredAt) )
+    .filter(r=>{
+      const hay = [r.type, r.name, r.shop, r.device, r.imei, r.condition, r.note].join(' ').toLowerCase();
+      return !q || hay.includes(q);
+    })
+    .sort((a,b)=> (owed(b)-owed(a)) || (new Date(b.createdAt)-new Date(a.createdAt)));
 
   let html = `<table><thead><tr>
-    <th>Loại</th><th>${'Khách/Shop'}</th><th>Máy</th><th>IMEI</th>
+    <th>Loại</th><th>Khách/Shop</th><th>Máy</th><th>IMEI</th>
     <th>Giá thu</th><th>Đã trả</th><th>Còn nợ</th><th>Ngày giao</th><th>Thao tác</th>
   </tr></thead><tbody>`;
   for(const r of arr){
@@ -598,15 +601,14 @@ function renderDebt(){
     </tr>`;
   }
   html += `</tbody></table>`;
-  $('#debt_tableWrap').innerHTML = html;
+  document.querySelector('#debt_tableWrap').innerHTML = html;
 
-  $('#kpiDebtTotal').textContent = money(arr.reduce((s,x)=> s+owed(x),0));
-  $('#kpiDebtCount').textContent = arr.length;
+  document.querySelector('#kpiDebtTotal').textContent = money(arr.reduce((s,x)=> s+owed(x),0));
+  document.querySelector('#kpiDebtCount').textContent = arr.length;
 
-  // bind buttons
-  $('#debt_tableWrap').querySelectorAll('[data-act="debt"]').forEach(btn=> btn.addEventListener('click', onActionBtn));
+  document.querySelectorAll('#debt_tableWrap [data-act="debt"]').forEach(btn=> btn.addEventListener('click', onActionBtn));
 }
-$('#debt_search').addEventListener('input', renderDebt);
+document.querySelector('#debt_search').addEventListener('input', renderDebt);
 
 /** ========= Reports ========= **/
 function renderReport(range){
@@ -615,7 +617,7 @@ function renderReport(range){
   else if(range==='week'){ from=startOfWeek(new Date()); to=toDateOnly(new Date()); }
   else if(range==='month'){ from=startOfMonth(new Date()); to=toDateOnly(new Date()); }
   else{
-    const f=$('#rp_from').value, t=$('#rp_to').value;
+    const f=document.querySelector('#rp_from').value, t=document.querySelector('#rp_to').value;
     if(f) from = toDateOnly(new Date(f));
     if(t) to = toDateOnly(new Date(t));
   }
@@ -625,10 +627,10 @@ function renderReport(range){
   const cost = arr.reduce((s,r)=> s + Number(r.cost||0), 0);
   const prof = revenue - cost;
 
-  $('#rp_revenue').textContent = money(revenue);
-  $('#rp_cost').textContent = money(cost);
-  $('#rp_profit').textContent = money(prof);
-  $('#rp_count').textContent = arr.length;
+  document.querySelector('#rp_revenue').textContent = money(revenue);
+  document.querySelector('#rp_cost').textContent = money(cost);
+  document.querySelector('#rp_profit').textContent = money(prof);
+  document.querySelector('#rp_count').textContent = arr.length;
 
   let html = `<table><thead><tr>
     <th>Ngày giao</th><th>Loại</th><th>Khách/Shop</th><th>Máy</th>
@@ -648,22 +650,22 @@ function renderReport(range){
     </tr>`;
   }
   html += `</tbody></table>`;
-  $('#rp_tableWrap').innerHTML = html;
+  document.querySelector('#rp_tableWrap').innerHTML = html;
 }
 document.querySelectorAll('#tab-report .btn[data-range]').forEach(b=>{
   b.addEventListener('click', ()=>{ renderReport(b.dataset.range); });
 });
-$('#rp_apply').onclick = ()=> renderReport('custom');
+document.querySelector('#rp_apply').onclick = ()=> renderReport('custom');
 
 /** ========= Export / Import / Reset ========= **/
-$('#btnExport').onclick = ()=>{
+document.querySelector('#btnExport').onclick = ()=>{
   const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `repair-data-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
 };
-$('#importJson').addEventListener('change', async (e)=>{
+document.querySelector('#importJson').addEventListener('change', async (e)=>{
   const f = e.target.files?.[0]; if(!f) return;
   const txt = await f.text();
   try{
@@ -676,7 +678,7 @@ $('#importJson').addEventListener('change', async (e)=>{
   }
   e.target.value='';
 });
-$('#btnReset').onclick = ()=>{
+document.querySelector('#btnReset').onclick = ()=>{
   if(confirm('Bạn chắc chắn muốn xóa TẤT CẢ dữ liệu?')){ db={le:[], si:[]}; save(); renderAll(); }
 };
 
@@ -687,7 +689,7 @@ document.querySelectorAll('.tab-btn[data-tab]').forEach(btn=>{
     btn.classList.add('active');
     const tab = btn.dataset.tab;
     document.querySelectorAll('main section').forEach(s=> s.style.display='none');
-    $('#tab-'+tab).style.display='block';
+    document.querySelector('#tab-'+tab).style.display='block';
     if(tab==='report') renderReport('month');
   });
 });
@@ -697,7 +699,6 @@ function renderAll(){
   renderTable('le');
   renderTable('si');
   renderDebt();
-  // refresh reports quick KPI defaults not necessary here
 }
 renderAll();
 </script>
