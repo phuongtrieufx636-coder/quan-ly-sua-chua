@@ -213,7 +213,7 @@
         </div>
       </div>
       <div class="table-wrap" id="debt_tableWrap"></div>
-      <p class="hint" style="margin-top:8px">Ghi nhận thanh toán sẽ tự động cập nhật trạng thái nợ. Khi trả hết → phiếu chuyển về trạng thái <b>Đã giao</b>.</p>
+      <p class="hint" style="margin-top:8px">Ghi nhận thanh toán sẽ tự động cập nhật trạng thái nợ. Khi trả hết → phiếu chuyển về <b>Đã giao</b>.</p>
     </div>
   </section>
 
@@ -241,7 +241,7 @@
   </section>
 </main>
 
-<!-- DIALOG đơn giản -->
+<!-- DIALOG -->
 <div id="dialog" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.3)">
   <div class="card" style="max-width:520px; width:min(92vw,520px)">
     <h3 id="dg_title">Tiêu đề</h3>
@@ -263,7 +263,10 @@ function startOfMonth(d=new Date()){ const t = new Date(d.getFullYear(), d.getMo
 function inRange(ts, from, to){ const x=new Date(ts); x.setHours(0,0,0,0); return (!from || x>=from)&&(!to || x<=to); }
 function uid(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); }
 function nowStr(){ const n = new Date(); return n.toLocaleString('vi-VN'); }
-$('#nowStr').textContent = nowStr(); setInterval(()=>$('#nowStr').textContent = nowStr(), 1000);
+document.addEventListener('DOMContentLoaded', ()=>{
+  const el = document.getElementById('nowStr');
+  if(el){ el.textContent = nowStr(); setInterval(()=> el.textContent = nowStr(), 1000); }
+});
 
 /** ========= Storage ========= **/
 const KEY='repairAppV1';
@@ -275,15 +278,7 @@ function load(){
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(db)); }
 
-/** ========= Model =========
- * record: {
- *   id, type: 'le'|'si',
- *   name, shop, device, imei, pass, condition, price, cost, note,
- *   status: 'received'|'progress'|'delivered'|'debt',
- *   createdAt, deliveredAt|null,
- *   payments: [{amount, note, at}], // for debt tracking (sum < price => still owed)
- * }
- **/
+/** ========= Model ========= **/
 function makeRecord(type, fields){
   const base = {
     id: uid(), type,
@@ -331,15 +326,18 @@ function actionsCell(rec){
       <button class="btn ghost" data-act="debt" data-id="${rec.id}" data-type="${rec.type}">Công nợ</button>
     </div>`;
 }
-const money = n => n? fmt.format(n): '0';
-const owed = rec => Math.max(0, Number(rec.price||0) - rec.payments.reduce((s,p)=>s+Number(p.amount||0),0));
-const profit = rec => Number(rec.price||0) - Number(rec.cost||0);
+function money(n){ return n? fmt.format(n): '0'; }
+function owed(rec){
+  const paid = rec.payments.reduce((s,p)=>s+Number(p.amount||0),0);
+  return Math.max(0, Number(rec.price||0) - paid);
+}
+function profit(rec){ return Number(rec.price||0) - Number(rec.cost||0); }
 
-/** ========= Render tables ========= **/
+/** ========= Tables ========= **/
 function renderTable(type){
-  const wrap = type==='le'? $('#le_tableWrap') : $('#si_tableWrap');
-  const q = (type==='le'? $('#le_search') : $('#si_search')).value.trim().toLowerCase();
-  const st = (type==='le'? $('#le_statusFilter') : $('#si_statusFilter')).value;
+  const wrap = type==='le'? document.getElementById('le_tableWrap') : document.getElementById('si_tableWrap');
+  const q = (type==='le'? document.getElementById('le_search') : document.getElementById('si_search')).value.trim().toLowerCase();
+  const st = (type==='le'? document.getElementById('le_statusFilter') : document.getElementById('si_statusFilter')).value;
   const arr = (type==='le'? db.le : db.si).filter(r=>{
     const hay = [r.name, r.shop, r.device, r.imei, r.condition, r.note, r.status].join(' ').toLowerCase();
     const okQ = !q || hay.includes(q);
@@ -363,7 +361,7 @@ function renderTable(type){
   </tr></thead><tbody>`;
 
   for(const r of arr){
-    const showDebtCell = (owed(r)>0 && (r.status==='debt' || r.deliveredAt));
+    const debtCell = (r.status==='debt' ? `<span class="pill" style="background:#fee2e2;color:#7f1d1d">${money(owed(r))}</span>` : '-');
     html += `<tr>
       <td>${new Date(r.createdAt).toLocaleDateString('vi-VN')}</td>
       <td>${type==='le'?(r.name||'-'):(r.shop||'-')}</td>
@@ -374,7 +372,7 @@ function renderTable(type){
       <td class="nowrap">${money(r.cost)}</td>
       <td>${statusBadge(r.status)}</td>
       <td>${r.deliveredAt? new Date(r.deliveredAt).toLocaleString('vi-VN'): '-'}</td>
-      <td class="nowrap">${showDebtCell ? `<span class="pill" style="background:#fee2e2;color:#7f1d1d">${money(owed(r))}</span>`:'-'}</td>
+      <td class="nowrap">${debtCell}</td>
       <td>${r.note||''}</td>
       <td>${actionsCell(r)}</td>
     </tr>`;
@@ -386,14 +384,14 @@ function renderTable(type){
     btn.addEventListener('click', onActionBtn);
   });
 
-  // KPIs (month / debt) — debt only after delivery or flagged debt
+  // KPIs (month / debt) — debt only when status==='debt'
   const first = startOfMonth(new Date());
   const delivered = (type==='le'? db.le:db.si).filter(x=>x.deliveredAt && new Date(x.deliveredAt)>=first);
   const profitSum = delivered.reduce((s,x)=> s + profit(x), 0);
-  const debtSum = (type==='le'? db.le:db.si).filter(x=> owed(x)>0 && (x.status==='debt' || x.deliveredAt)).reduce((s,x)=> s + owed(x), 0);
-  (type==='le'? $('#kpiLeDelivered'):$('#kpiSiDelivered')).textContent = delivered.length;
-  (type==='le'? $('#kpiLeProfit'):$('#kpiSiProfit')).textContent = money(profitSum);
-  (type==='le'? $('#kpiLeDebt'):$('#kpiSiDebt')).textContent = money(debtSum);
+  const debtSum = (type==='le'? db.le:db.si).filter(x=>x.status==='debt').reduce((s,x)=> s + owed(x), 0);
+  (type==='le'? document.getElementById('kpiLeDelivered'):document.getElementById('kpiSiDelivered')).textContent = delivered.length;
+  (type==='le'? document.getElementById('kpiLeProfit'):document.getElementById('kpiSiProfit')).textContent = money(profitSum);
+  (type==='le'? document.getElementById('kpiLeDebt'):document.getElementById('kpiSiDebt')).textContent = money(debtSum);
 }
 
 function onActionBtn(e){
@@ -420,18 +418,13 @@ function onActionBtn(e){
     return;
   }
   if(act==='debt'){
-    if(!rec.deliveredAt && rec.status!=='debt'){
-      alert('Chưa giao máy nên chưa phát sinh công nợ. Hãy bấm "Đã giao" trước (có thể ghi nhận khách trả một phần).');
-      openDeliverDialog(rec);
-      return;
-    }
     openDebtDialog(rec);
     return;
   }
 }
 
 /** ========= Dialogs ========= **/
-const dialog = $('#dialog'), dgTitle = $('#dg_title'), dgBody = $('#dg_body'), dgOk=$('#dg_ok'), dgCancel=$('#dg_cancel');
+const dialog = document.getElementById('dialog'), dgTitle = document.getElementById('dg_title'), dgBody = document.getElementById('dg_body'), dgOk=document.getElementById('dg_ok'), dgCancel=document.getElementById('dg_cancel');
 dgCancel.onclick = ()=> closeDialog();
 
 function openDialog(title, bodyHTML, onOk){
@@ -444,12 +437,13 @@ function openDialog(title, bodyHTML, onOk){
 function closeDialog(){ dialog.style.display='none'; dgBody.innerHTML=''; dgOk.onclick=null; }
 
 function openDeliverDialog(rec){
+  const remaining = rec.price - rec.payments.reduce((s,p)=>s+Number(p.amount||0),0);
   const body = `
     <div class="grid">
       <div class="row-12"><b>Xác nhận giao máy</b></div>
       <div class="row-6">
         <label>Số tiền khách trả ngay (VND)</label>
-        <input id="pay_now" type="number" min="0" value="\${Math.min(rec.price, rec.price - rec.payments.reduce((s,p)=>s+Number(p.amount||0),0))}">
+        <input id="pay_now" type="number" min="0" value="${Math.max(0, remaining)}">
       </div>
       <div class="row-6">
         <label>Ghi chú thanh toán</label>
@@ -458,8 +452,8 @@ function openDeliverDialog(rec){
       <div class="row-12 hint">Nếu khách chưa trả đủ, phần còn lại sẽ chuyển sang <b>công nợ</b>.</div>
     </div>`;
   openDialog('Đã giao máy', body, ()=>{
-    const payNow = Number(document.querySelector('#pay_now').value||0);
-    const note = document.querySelector('#pay_note').value?.trim()||'';
+    const payNow = Number(document.getElementById('pay_now').value||0);
+    const note = document.getElementById('pay_note').value?.trim()||'';
     if(payNow>0){ rec.payments.push({amount:payNow, note, at:new Date().toISOString()}); }
     rec.deliveredAt = new Date().toISOString();
     rec.status = owed(rec)>0 ? 'debt' : 'delivered';
@@ -472,19 +466,19 @@ function openDebtDialog(rec){
     <div class="grid">
       <div class="row-6">
         <label>Số tiền khách trả thêm (VND)</label>
-        <input id="pay_more" type="number" min="0" value="\${owed(rec)}">
+        <input id="pay_more" type="number" min="0" value="${owed(rec)}">
       </div>
       <div class="row-6">
         <label>Ghi chú</label>
         <input id="pay_more_note" placeholder="Thu nợ đợt 2...">
       </div>
       <div class="row-12">
-        <div class="hint">Còn nợ hiện tại: <b>\${money(owed(rec))} VND</b></div>
+        <div class="hint">Còn nợ hiện tại: <b>${money(owed(rec))} VND</b></div>
       </div>
     </div>`;
   openDialog('Ghi nhận thanh toán công nợ', body, ()=>{
-    const n = Number(document.querySelector('#pay_more').value||0);
-    const note = document.querySelector('#pay_more_note').value?.trim()||'';
+    const n = Number(document.getElementById('pay_more').value||0);
+    const note = document.getElementById('pay_more_note').value?.trim()||'';
     if(n>0){ rec.payments.push({amount:n, note, at:new Date().toISOString()}); }
     if(!rec.deliveredAt) rec.deliveredAt=new Date().toISOString();
     rec.status = owed(rec)>0 ? 'debt' : 'delivered';
@@ -495,67 +489,67 @@ function openDebtDialog(rec){
 function openEditDialog(rec){
   const body = `
     <div class="grid">
-      <div class="row-6"><label>\${rec.type==='le'?'Tên khách':'Cửa hàng'}</label><input id="ed_name" value="\${rec.type==='le'? (rec.name||'') : (rec.shop||'')}"></div>
-      \${rec.type==='si'? `<div class="row-6"><label>Người liên hệ</label><input id="ed_contact" value="${rec.name||''}"></div>`:''}
-      <div class="row-6"><label>Tên máy</label><input id="ed_device" value="\${rec.device||''}"></div>
-      <div class="row-6"><label>IMEI</label><input id="ed_imei" value="\${rec.imei||''}"></div>
-      <div class="row-6"><label>Mật khẩu/Mã máy</label><input id="ed_pass" value="\${rec.pass||''}"></div>
-      <div class="row-6"><label>Tình trạng</label><input id="ed_condition" value="\${rec.condition||''}"></div>
-      <div class="row-6"><label>Giá thu (VND)</label><input id="ed_price" type="number" value="\${rec.price||0}"></div>
-      <div class="row-6"><label>Giá vốn (VND)</label><input id="ed_cost" type="number" value="\${rec.cost||0}"></div>
-      <div class="row-12"><label>Ghi chú</label><textarea id="ed_note">\${rec.note||''}</textarea></div>
+      <div class="row-6"><label>${rec.type==='le'?'Tên khách':'Cửa hàng'}</label><input id="ed_name" value="${rec.type==='le'? (rec.name||'') : (rec.shop||'')}"></div>
+      ${rec.type==='si'? `<div class="row-6"><label>Người liên hệ</label><input id="ed_contact" value="${rec.name||''}"></div>`:''}
+      <div class="row-6"><label>Tên máy</label><input id="ed_device" value="${rec.device||''}"></div>
+      <div class="row-6"><label>IMEI</label><input id="ed_imei" value="${rec.imei||''}"></div>
+      <div class="row-6"><label>Mật khẩu/Mã máy</label><input id="ed_pass" value="${rec.pass||''}"></div>
+      <div class="row-6"><label>Tình trạng</label><input id="ed_condition" value="${rec.condition||''}"></div>
+      <div class="row-6"><label>Giá thu (VND)</label><input id="ed_price" type="number" value="${rec.price||0}"></div>
+      <div class="row-6"><label>Giá vốn (VND)</label><input id="ed_cost" type="number" value="${rec.cost||0}"></div>
+      <div class="row-12"><label>Ghi chú</label><textarea id="ed_note">${rec.note||''}</textarea></div>
       <div class="row-6">
         <label>Trạng thái</label>
         <select id="ed_status">
-          <option value="received" \${rec.status==='received'?'selected':''}>Đã nhận</option>
-          <option value="progress" \${rec.status==='progress'?'selected':''}>Đang làm</option>
-          <option value="delivered" \${rec.status==='delivered'?'selected':''}>Đã giao</option>
-          <option value="debt" \${rec.status==='debt'?'selected':''}>Công nợ</option>
+          <option value="received" ${rec.status==='received'?'selected':''}>Đã nhận</option>
+          <option value="progress" ${rec.status==='progress'?'selected':''}>Đang làm</option>
+          <option value="delivered" ${rec.status==='delivered'?'selected':''}>Đã giao</option>
+          <option value="debt" ${rec.status==='debt'?'selected':''}>Công nợ</option>
         </select>
       </div>
     </div>`;
   openDialog('Sửa phiếu', body, ()=>{
-    if(rec.type==='le'){ rec.name = document.querySelector('#ed_name').value.trim(); }
-    else { rec.shop = document.querySelector('#ed_name').value.trim(); rec.name = (document.querySelector('#ed_contact')?.value||'').trim(); }
-    rec.device = document.querySelector('#ed_device').value.trim();
-    rec.imei = document.querySelector('#ed_imei').value.trim();
-    rec.pass = document.querySelector('#ed_pass').value.trim();
-    rec.condition = document.querySelector('#ed_condition').value.trim();
-    rec.price = Number(document.querySelector('#ed_price').value||0);
-    rec.cost = Number(document.querySelector('#ed_cost').value||0);
-    rec.note = document.querySelector('#ed_note').value.trim();
-    const newStatus = document.querySelector('#ed_status').value;
+    if(rec.type==='le'){ rec.name = document.getElementById('ed_name').value.trim(); }
+    else { rec.shop = document.getElementById('ed_name').value.trim(); rec.name = (document.getElementById('ed_contact').value||'').trim(); }
+    rec.device = document.getElementById('ed_device').value.trim();
+    rec.imei = document.getElementById('ed_imei').value.trim();
+    rec.pass = document.getElementById('ed_pass').value.trim();
+    rec.condition = document.getElementById('ed_condition').value.trim();
+    rec.price = Number(document.getElementById('ed_price').value||0);
+    rec.cost = Number(document.getElementById('ed_cost').value||0);
+    rec.note = document.getElementById('ed_note').value.trim();
+    const newStatus = document.getElementById('ed_status').value;
     rec.status = newStatus;
     if(newStatus==='delivered' && !rec.deliveredAt) rec.deliveredAt=new Date().toISOString();
     setRecord(rec); renderAll();
   });
 }
 
-/** ========= Add handlers ========= **/
-document.querySelector('#addLe').onclick = ()=>{
+/** ========= Handlers ========= **/
+document.getElementById('addLe').onclick = ()=>{
   const rec = makeRecord('le',{
-    name: document.querySelector('#le_name').value,
-    device: document.querySelector('#le_device').value,
-    imei: document.querySelector('#le_imei').value,
-    pass: document.querySelector('#le_pass').value,
-    condition: document.querySelector('#le_condition').value,
-    price: document.querySelector('#le_price').value,
-    cost: document.querySelector('#le_cost').value,
-    note: document.querySelector('#le_note').value,
+    name: document.getElementById('le_name').value,
+    device: document.getElementById('le_device').value,
+    imei: document.getElementById('le_imei').value,
+    pass: document.getElementById('le_pass').value,
+    condition: document.getElementById('le_condition').value,
+    price: document.getElementById('le_price').value,
+    cost: document.getElementById('le_cost').value,
+    note: document.getElementById('le_note').value,
   });
   db.le.push(rec); save(); clearForm('le'); renderAll();
 };
-document.querySelector('#addSi').onclick = ()=>{
+document.getElementById('addSi').onclick = ()=>{
   const rec = makeRecord('si',{
-    shop: document.querySelector('#si_shop').value,
-    name: document.querySelector('#si_name').value,
-    device: document.querySelector('#si_device').value,
-    imei: document.querySelector('#si_imei').value,
-    pass: document.querySelector('#si_pass').value,
-    condition: document.querySelector('#si_condition').value,
-    price: document.querySelector('#si_price').value,
-    cost: document.querySelector('#si_cost').value,
-    note: document.querySelector('#si_note').value,
+    shop: document.getElementById('si_shop').value,
+    name: document.getElementById('si_name').value,
+    device: document.getElementById('si_device').value,
+    imei: document.getElementById('si_imei').value,
+    pass: document.getElementById('si_pass').value,
+    condition: document.getElementById('si_condition').value,
+    price: document.getElementById('si_price').value,
+    cost: document.getElementById('si_cost').value,
+    note: document.getElementById('si_note').value,
   });
   db.si.push(rec); save(); clearForm('si'); renderAll();
 };
@@ -563,19 +557,19 @@ function clearForm(type){
   const ids = type==='le'?
     ['le_name','le_device','le_imei','le_pass','le_condition','le_price','le_cost','le_note']:
     ['si_shop','si_name','si_device','si_imei','si_pass','si_condition','si_price','si_cost','si_note'];
-  ids.forEach(id=>{ const el=document.querySelector('#'+id); if(!el) return; el.value=''; });
+  ids.forEach(id=>{ const el=document.getElementById(id); if(!el) return; el.value=''; });
 }
 
 /** ========= Filters & KPIs ========= **/
 ['le_search','si_search','le_statusFilter','si_statusFilter'].forEach(id=>{
-  const el = document.querySelector('#'+id); if(el) el.addEventListener('input', ()=> renderAll());
+  const el = document.getElementById(id); if(el) el.addEventListener('input', ()=> renderAll());
 });
 
 /** ========= Debt view ========= **/
 function renderDebt(){
-  const q = document.querySelector('#debt_search').value.trim().toLowerCase();
+  const q = document.getElementById('debt_search').value.trim().toLowerCase();
   const arr = listAll()
-    .filter(r=> owed(r)>0 && (r.status==='debt' || r.deliveredAt) )
+    .filter(r=> r.status==='debt' && owed(r)>0 )
     .filter(r=>{
       const hay = [r.type, r.name, r.shop, r.device, r.imei, r.condition, r.note].join(' ').toLowerCase();
       return !q || hay.includes(q);
@@ -601,14 +595,14 @@ function renderDebt(){
     </tr>`;
   }
   html += `</tbody></table>`;
-  document.querySelector('#debt_tableWrap').innerHTML = html;
+  document.getElementById('debt_tableWrap').innerHTML = html;
 
-  document.querySelector('#kpiDebtTotal').textContent = money(arr.reduce((s,x)=> s+owed(x),0));
-  document.querySelector('#kpiDebtCount').textContent = arr.length;
+  document.getElementById('kpiDebtTotal').textContent = money(arr.reduce((s,x)=> s+owed(x),0));
+  document.getElementById('kpiDebtCount').textContent = arr.length;
 
-  document.querySelectorAll('#debt_tableWrap [data-act="debt"]').forEach(btn=> btn.addEventListener('click', onActionBtn));
+  document.getElementById('debt_tableWrap').querySelectorAll('[data-act="debt"]').forEach(btn=> btn.addEventListener('click', onActionBtn));
 }
-document.querySelector('#debt_search').addEventListener('input', renderDebt);
+document.getElementById('debt_search').addEventListener('input', renderDebt);
 
 /** ========= Reports ========= **/
 function renderReport(range){
@@ -617,7 +611,7 @@ function renderReport(range){
   else if(range==='week'){ from=startOfWeek(new Date()); to=toDateOnly(new Date()); }
   else if(range==='month'){ from=startOfMonth(new Date()); to=toDateOnly(new Date()); }
   else{
-    const f=document.querySelector('#rp_from').value, t=document.querySelector('#rp_to').value;
+    const f=document.getElementById('rp_from').value, t=document.getElementById('rp_to').value;
     if(f) from = toDateOnly(new Date(f));
     if(t) to = toDateOnly(new Date(t));
   }
@@ -627,10 +621,10 @@ function renderReport(range){
   const cost = arr.reduce((s,r)=> s + Number(r.cost||0), 0);
   const prof = revenue - cost;
 
-  document.querySelector('#rp_revenue').textContent = money(revenue);
-  document.querySelector('#rp_cost').textContent = money(cost);
-  document.querySelector('#rp_profit').textContent = money(prof);
-  document.querySelector('#rp_count').textContent = arr.length;
+  document.getElementById('rp_revenue').textContent = money(revenue);
+  document.getElementById('rp_cost').textContent = money(cost);
+  document.getElementById('rp_profit').textContent = money(prof);
+  document.getElementById('rp_count').textContent = arr.length;
 
   let html = `<table><thead><tr>
     <th>Ngày giao</th><th>Loại</th><th>Khách/Shop</th><th>Máy</th>
@@ -650,22 +644,22 @@ function renderReport(range){
     </tr>`;
   }
   html += `</tbody></table>`;
-  document.querySelector('#rp_tableWrap').innerHTML = html;
+  document.getElementById('rp_tableWrap').innerHTML = html;
 }
 document.querySelectorAll('#tab-report .btn[data-range]').forEach(b=>{
   b.addEventListener('click', ()=>{ renderReport(b.dataset.range); });
 });
-document.querySelector('#rp_apply').onclick = ()=> renderReport('custom');
+document.getElementById('rp_apply').onclick = ()=> renderReport('custom');
 
 /** ========= Export / Import / Reset ========= **/
-document.querySelector('#btnExport').onclick = ()=>{
+document.getElementById('btnExport').onclick = ()=>{
   const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `repair-data-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
 };
-document.querySelector('#importJson').addEventListener('change', async (e)=>{
+document.getElementById('importJson').addEventListener('change', async (e)=>{
   const f = e.target.files?.[0]; if(!f) return;
   const txt = await f.text();
   try{
@@ -678,7 +672,7 @@ document.querySelector('#importJson').addEventListener('change', async (e)=>{
   }
   e.target.value='';
 });
-document.querySelector('#btnReset').onclick = ()=>{
+document.getElementById('btnReset').onclick = ()=>{
   if(confirm('Bạn chắc chắn muốn xóa TẤT CẢ dữ liệu?')){ db={le:[], si:[]}; save(); renderAll(); }
 };
 
@@ -689,7 +683,7 @@ document.querySelectorAll('.tab-btn[data-tab]').forEach(btn=>{
     btn.classList.add('active');
     const tab = btn.dataset.tab;
     document.querySelectorAll('main section').forEach(s=> s.style.display='none');
-    document.querySelector('#tab-'+tab).style.display='block';
+    document.getElementById('tab-'+tab).style.display='block';
     if(tab==='report') renderReport('month');
   });
 });
